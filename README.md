@@ -5,6 +5,8 @@ A 3D football game set at the 2026 World Cup. Pick a nation and one player, play
 - `index.html`: the page and its styles.
 - `app.js`: all game code.
 - Three.js and supabase-js load from public CDNs, pinned to exact versions with integrity hashes.
+- `flags/`: the 48 national flags, copied from [flag-icons](https://github.com/lipis/flag-icons) 7.5.0 (MIT licence, see `flags/LICENSE`). England and Scotland use their own flags rather than the Union Jack.
+- `favicon.svg`: the soccer ball tab icon.
 
 ## Saving
 

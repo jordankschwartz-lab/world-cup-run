@@ -2,66 +2,60 @@
    DATA — the 48 teams of the 2026 World Cup, in their drawn groups
    ===================================================================== */
 const W='#f4f4f4';
-const v3=(a,b,c)=>`linear-gradient(90deg,${a} 0 33.4%,${b} 33.4% 66.7%,${c} 66.7%)`;
-const h3=(a,b,c)=>`linear-gradient(${a} 0 33.4%,${b} 33.4% 66.7%,${c} 66.7%)`;
-const cross=(base,c)=>`linear-gradient(90deg,transparent 42%,${c} 42% 58%,transparent 58%),linear-gradient(transparent 38%,${c} 38% 62%,transparent 62%),${base}`;
-const nordic=(base,c)=>`linear-gradient(90deg,transparent 30%,${c} 30% 42%,transparent 42%),linear-gradient(transparent 42%,${c} 42% 58%,transparent 58%),${base}`;
-const disc=(base,c)=>`radial-gradient(circle,${c} 0 27%,transparent 28%),${base}`;
-const tri=(c,w)=>`linear-gradient(to top right,${c} 50%,transparent 50%) top left/${w} 50% no-repeat,linear-gradient(to bottom right,${c} 50%,transparent 50%) bottom left/${w} 50% no-repeat`;
 const GROUPS={
   A:['MEX','RSA','KOR','CZE'], B:['CAN','BIH','QAT','SUI'], C:['BRA','MAR','HAI','SCO'], D:['USA','PAR','AUS','TUR'],
   E:['GER','CUW','CIV','ECU'], F:['NED','JPN','SWE','TUN'], G:['BEL','EGY','IRN','NZL'], H:['ESP','CPV','KSA','URU'],
   I:['FRA','SEN','IRQ','NOR'], J:['ARG','ALG','AUT','JOR'], K:['POR','COD','UZB','COL'], L:['ENG','CRO','GHA','PAN']};
-// id, name, rating, flag css, kit [shirt, shorts, socks, pattern, pattern colour], change shirt, squad (GK, DF, DF, MF, MF, MF, FW), star index
+// id, name, rating, flag file (flags/<code>.svg, from flag-icons), kit [shirt, shorts, socks, pattern, pattern colour], change shirt, squad (GK, DF, DF, MF, MF, MF, FW), star index
 const RAW=[
- ['MEX','Mexico',79,v3('#006847','#fff','#ce1126'),['#0b6b3a',W,'#0b6b3a'],W,['Luis Malagón','César Montes','Johan Vásquez','Edson Álvarez','Luis Chávez','Alexis Vega','Santiago Giménez'],6],
- ['RSA','South Africa',72,tri('#111','34%')+',linear-gradient(#e03c31 0 33%,#fff 33% 37%,#007a4d 37% 63%,#fff 63% 67%,#002395 67%)',['#ffd200','#0b6b3a','#ffd200'],W,['Ronwen Williams','Mothobi Mvala','Aubrey Modiba','Teboho Mokoena','Themba Zwane','Oswin Appollis','Lyle Foster'],6],
- ['KOR','South Korea',78,disc('#fff','#cd2e3a'),['#d4213d','#151515','#d4213d'],W,['Jo Hyeon-woo|Jo Hyeon-woo','Kim Min-jae|Kim Min-jae','Seol Young-woo|Seol Young-woo','Hwang In-beom|Hwang In-beom','Lee Kang-in|Lee Kang-in','Hwang Hee-chan|Hwang Hee-chan','Son Heung-min|Son Heung-min'],6],
- ['CZE','Czechia',76,tri('#11457e','45%')+',linear-gradient(#fff 50%,#d7141a 50%)',['#d7141a',W,'#d7141a'],W,['Matěj Kovář','Vladimír Coufal','Ladislav Krejčí','Tomáš Souček','Lukáš Provod','Pavel Šulc','Patrik Schick'],6],
- ['CAN','Canada',77,'radial-gradient(circle,#d52b1e 0 16%,transparent 17%),linear-gradient(90deg,#d52b1e 0 25%,#fff 25% 75%,#d52b1e 75%)',['#d52b1e','#d52b1e','#d52b1e'],W,['Dayne St. Clair','Alphonso Davies','Moïse Bombito','Stephen Eustáquio','Ismaël Koné','Tajon Buchanan','Jonathan David'],6],
- ['BIH','Bosnia and Herzegovina',75,'linear-gradient(90deg,transparent 32%,#fecb00 32% 60%,transparent 60%),#002395',['#1f3f99','#1f3f99','#1f3f99'],W,['Nikola Vasilj','Sead Kolašinac','Amar Dedić','Amir Hadžiahmetović','Benjamin Tahirović','Ermedin Demirović','Edin Džeko'],6],
- ['QAT','Qatar',70,'linear-gradient(90deg,#fff 0 30%,#8a1538 30%)',['#8a1538','#8a1538','#8a1538'],W,['Meshaal Barsham','Pedro Miguel','Boualem Khoukhi','Karim Boudiaf','Abdulaziz Hatem','Akram Afif','Almoez Ali'],5],
- ['SUI','Switzerland',79,cross('#d52b1e','#fff'),['#d52b1e','#d52b1e','#d52b1e'],W,['Gregor Kobel','Manuel Akanji','Ricardo Rodríguez','Granit Xhaka','Remo Freuler','Dan Ndoye','Breel Embolo'],3],
- ['BRA','Brazil',87,'radial-gradient(circle,#002776 0 20%,#ffdf00 21% 46%,#009c3b 47%)',['#ffdf00','#1f4fa8',W],'#1f4fa8',['Alisson','Marquinhos','Gabriel Magalhães','Casemiro','Bruno Guimarães','Raphinha','Vinícius Júnior|Vini Jr.'],6],
- ['MAR','Morocco',82,'radial-gradient(circle,#006233 0 18%,#c1272d 20%)',['#c1272d','#0b6b3a','#c1272d'],W,['Yassine Bounou','Achraf Hakimi','Nayef Aguerd','Sofyan Amrabat','Azzedine Ounahi','Brahim Díaz','Youssef En-Nesyri'],1],
- ['HAI','Haiti',65,'linear-gradient(#00209f 50%,#d21034 50%)',['#00209f','#d21034','#00209f'],'#d21034',['Johny Placide','Ricardo Adé','Carlens Arcus','Leverton Pierre','Danley Jean Jacques','Derrick Etienne Jr.','Duckens Nazon'],6],
- ['SCO','Scotland',76,'linear-gradient(to top right,transparent 45%,#fff 45% 55%,transparent 55%),linear-gradient(to bottom right,transparent 45%,#fff 45% 55%,transparent 55%),#005eb8',['#1c2a5e',W,'#1c2a5e'],W,['Angus Gunn','Andy Robertson','Kieran Tierney','Billy Gilmour','John McGinn','Scott McTominay','Ché Adams'],5],
- ['USA','United States',80,'linear-gradient(90deg,#3c3b6e 0 40%,transparent 40%) top left/100% 54% no-repeat,repeating-linear-gradient(#b22234 0 7.7%,#fff 7.7% 15.4%)',[W,'#1f2a5c',W],'#1f2a5c',['Matt Freese','Chris Richards','Antonee Robinson','Tyler Adams','Weston McKennie','Christian Pulisic','Folarin Balogun'],5],
- ['PAR','Paraguay',76,h3('#d52b1e','#fff','#0038a8'),['#d52b1e','#1f2a5c','#1f2a5c','v',W],'#1f2a5c',['Gatito Fernández|Gatito','Gustavo Gómez','Omar Alderete','Diego Gómez','Miguel Almirón','Julio Enciso','Antonio Sanabria'],4],
- ['AUS','Australia',75,'radial-gradient(circle at 72% 62%,#fff 0 7%,transparent 8%),radial-gradient(circle at 26% 72%,#fff 0 9%,transparent 10%),#012169',['#ffcd00','#00843d','#ffcd00'],'#00843d',['Mathew Ryan','Harry Souttar','Alessandro Circati','Jackson Irvine',"Aiden O'Neill",'Riley McGree','Mitchell Duke'],3],
- ['TUR','Türkiye',80,'radial-gradient(circle at 44% 50%,#e30a17 0 17%,transparent 18%),radial-gradient(circle at 38% 50%,#fff 0 23%,transparent 24%),#e30a17',['#e30a17',W,'#e30a17'],W,['Uğurcan Çakır','Merih Demiral','Ferdi Kadıoğlu','Hakan Çalhanoğlu','Arda Güler','Kenan Yıldız','Kerem Aktürkoğlu'],4],
- ['GER','Germany',86,h3('#000','#dd0000','#ffce00'),[W,'#151515',W],'#151515',['Oliver Baumann','Antonio Rüdiger','Jonathan Tah','Joshua Kimmich','Florian Wirtz','Jamal Musiala','Kai Havertz'],5],
- ['CUW','Curaçao',66,'linear-gradient(transparent 62%,#f9e814 62% 74%,transparent 74%),#002b7f',['#002b7f','#002b7f','#002b7f'],'#f9e814',['Eloy Room','Juriën Gaari','Sherel Floranus','Leandro Bacuna','Juninho Bacuna','Tahith Chong','Gervane Kastaneer'],3],
- ['CIV','Ivory Coast',78,v3('#f77f00','#fff','#009e60'),['#f77f00',W,'#009e60'],W,['Yahia Fofana','Evan Ndicka','Odilon Kossounou','Franck Kessié','Seko Fofana','Amad Diallo','Sébastien Haller'],5],
- ['ECU','Ecuador',79,'linear-gradient(#ffdd00 0 50%,#034ea2 50% 75%,#ed1c24 75%)',['#ffdd00','#034ea2','#ed1c24'],'#034ea2',['Hernán Galíndez','Piero Hincapié','Willian Pacho','Moisés Caicedo','Kendry Páez','Pervis Estupiñán','Enner Valencia'],3],
- ['NED','Netherlands',85,h3('#ae1c28','#fff','#21468b'),['#ff7f00','#ff7f00','#ff7f00'],'#1f2a5c',['Bart Verbruggen','Virgil van Dijk','Denzel Dumfries','Frenkie de Jong','Tijjani Reijnders','Xavi Simons','Cody Gakpo'],1],
- ['JPN','Japan',80,disc('#fff','#bc002d'),['#1b3a8a','#1b3a8a','#1b3a8a'],W,['Zion Suzuki','Ko Itakura','Takehiro Tomiyasu','Wataru Endo','Takefusa Kubo','Kaoru Mitoma','Ayase Ueda'],5],
- ['SWE','Sweden',79,nordic('#006aa7','#fecc00'),['#fecc00','#006aa7','#fecc00'],'#006aa7',['Viktor Johansson','Victor Lindelöf','Isak Hien','Lucas Bergvall','Dejan Kulusevski','Alexander Isak','Viktor Gyökeres'],6],
- ['TUN','Tunisia',74,'radial-gradient(circle,#e70013 0 13%,#fff 14% 27%,transparent 28%),#e70013',['#e70013','#e70013','#e70013'],W,['Aymen Dahmen','Montassar Talbi','Ali Abdi','Ellyes Skhiri','Hannibal Mejbri','Anis Ben Slimane','Seifeddine Jaziri'],4],
- ['BEL','Belgium',82,v3('#111','#fdda24','#ef3340'),['#c8102e','#c8102e','#c8102e'],'#151515',['Thibaut Courtois','Arthur Theate','Timothy Castagne','Youri Tielemans','Kevin De Bruyne','Jérémy Doku','Romelu Lukaku'],4],
- ['EGY','Egypt',77,h3('#ce1126','#fff','#111'),['#ce1126',W,'#151515'],W,['Mohamed El Shenawy','Mohamed Abdelmonem','Mohamed Hany','Marwan Attia','Emam Ashour','Omar Marmoush','Mohamed Salah'],6],
- ['IRN','Iran',76,h3('#239f40','#fff','#da0000'),[W,W,W],'#da0000',['Alireza Beiranvand','Shojae Khalilzadeh','Milad Mohammadi','Saeid Ezatolahi','Alireza Jahanbakhsh','Mohammad Mohebi','Mehdi Taremi'],6],
- ['NZL','New Zealand',68,'radial-gradient(circle at 72% 62%,#cc142b 0 7%,transparent 8%),radial-gradient(circle at 80% 35%,#cc142b 0 6%,transparent 7%),#012169',[W,'#151515',W],'#151515',['Max Crocombe','Michael Boxall','Tyler Bindon','Joe Bell','Marko Stamenić','Sarpreet Singh','Chris Wood'],6],
- ['ESP','Spain',90,'linear-gradient(#aa151b 0 25%,#f1bf00 25% 75%,#aa151b 75%)',['#c60b1e','#1f2a5c','#1f2a5c'],'#f1bf00',['Unai Simón','Pau Cubarsí','Marc Cucurella','Rodri','Pedri','Lamine Yamal','Mikel Oyarzabal'],5],
- ['CPV','Cape Verde',69,'linear-gradient(transparent 50%,#fff 50% 57%,#cf2027 57% 64%,#fff 64% 71%,transparent 71%),#003893',['#003893','#003893','#003893'],W,['Vozinha','Roberto Lopes','Logan Costa','Kevin Pina','Jamiro Monteiro','Ryan Mendes','Dailon Livramento'],5],
- ['KSA','Saudi Arabia',72,'linear-gradient(transparent 58%,#fff 58% 64%,transparent 64%),#006c35',[W,W,W],'#006c35',['Mohammed Al-Owais','Ali Al-Bulaihi','Saud Abdulhamid','Mohamed Kanno','Musab Al-Juwayr','Salem Al-Dawsari','Feras Al-Brikan'],5],
- ['URU','Uruguay',82,'repeating-linear-gradient(#fff 0 11.1%,#0038a8 11.1% 22.2%)',['#7ab8e8','#151515','#151515'],W,['Sergio Rochet','Ronald Araújo','José María Giménez','Manuel Ugarte','Federico Valverde','Giorgian de Arrascaeta','Darwin Núñez'],4],
- ['FRA','France',89,v3('#002395','#fff','#ed2939'),['#1d2f6f',W,'#d0102b'],W,['Mike Maignan','William Saliba','Jules Koundé','Aurélien Tchouaméni','Michael Olise','Ousmane Dembélé','Kylian Mbappé'],6],
- ['SEN','Senegal',80,v3('#00853f','#fdef42','#e31b23'),[W,W,W],'#00853f',['Édouard Mendy','Kalidou Koulibaly','Moussa Niakhaté','Pape Matar Sarr','Idrissa Gueye','Sadio Mané','Nicolas Jackson'],5],
- ['IRQ','Iraq',70,h3('#ce1126','#fff','#111'),['#007a3d','#007a3d','#007a3d'],W,['Jalal Hassan','Rebin Sulaka','Merchas Doski','Amir Al-Ammari','Zidane Iqbal','Ibrahim Bayesh','Aymen Hussein'],6],
- ['NOR','Norway',81,`linear-gradient(90deg,transparent 33%,#00205b 33% 39%,transparent 39%),linear-gradient(transparent 46%,#00205b 46% 54%,transparent 54%),${nordic('#ba0c2f','#fff')}`,['#ba0c2f',W,'#1f2a5c'],W,['Ørjan Nyland','Kristoffer Ajer','Leo Østigård','Sander Berge','Martin Ødegaard','Antonio Nusa','Erling Haaland'],6],
- ['ARG','Argentina',89,h3('#74acdf','#fff','#74acdf'),['#74acdf','#151515',W,'v',W],'#1b2a5a',['Emiliano Martínez','Cristian Romero','Nicolás Otamendi','Enzo Fernández','Alexis Mac Allister','Lionel Messi','Lautaro Martínez'],5],
- ['ALG','Algeria',77,'radial-gradient(circle,#d21034 0 14%,transparent 15%),linear-gradient(90deg,#006233 50%,#fff 50%)',[W,W,W],'#006233',['Luca Zidane','Ramy Bensebaini','Aïssa Mandi','Ismaël Bennacer','Houssem Aouar','Riyad Mahrez','Mohamed Amoura'],5],
- ['AUT','Austria',79,h3('#ed2939','#fff','#ed2939'),['#ed2939',W,'#ed2939'],W,['Alexander Schlager','David Alaba','Kevin Danso','Konrad Laimer','Marcel Sabitzer','Christoph Baumgartner','Marko Arnautović'],4],
- ['JOR','Jordan',70,tri('#ce1126','40%')+','+h3('#111','#fff','#007a3d'),[W,W,W],'#ce1126',['Yazeed Abulaila','Yazan Al-Arab','Abdallah Nasib','Nizar Al-Rashdan','Noor Al-Rawabdeh','Mousa Al-Tamari','Yazan Al-Naimat'],5],
- ['POR','Portugal',86,'linear-gradient(90deg,#006600 0 40%,#ff0000 40%)',['#c8102e','#0b5e2a','#c8102e'],W,['Diogo Costa','Rúben Dias','Nuno Mendes','Vitinha','Bruno Fernandes','Bernardo Silva','Cristiano Ronaldo'],6],
- ['COD','DR Congo',73,'linear-gradient(to top right,transparent 40%,#f7d618 40% 44%,#ce1021 44% 56%,#f7d618 56% 60%,transparent 60%),#007fff',['#007fff','#007fff','#007fff'],'#ce1021',['Lionel Mpasi','Chancel Mbemba','Arthur Masuaku','Samuel Moutoussamy','Gaël Kakuta','Théo Bongonda','Yoane Wissa'],6],
- ['UZB','Uzbekistan',72,'linear-gradient(#0099b5 0 32%,#ce1126 32% 34%,#fff 34% 66%,#ce1126 66% 68%,#1eb53a 68%)',[W,W,W],'#0099b5',['Utkir Yusupov','Abdukodir Khusanov','Rustamjon Ashurmatov','Otabek Shukurov','Jaloliddin Masharipov','Abbosbek Fayzullaev','Eldor Shomurodov'],6],
- ['COL','Colombia',82,'linear-gradient(#fcd116 0 50%,#003893 50% 75%,#ce1126 75%)',['#fcd116','#003893',W],'#003893',['Camilo Vargas','Dávinson Sánchez','Daniel Muñoz','Richard Ríos','James Rodríguez','Luis Díaz','Jhon Córdoba'],5],
- ['ENG','England',87,cross('#fff','#ce1124'),[W,'#1f2a5c',W],'#c8102e',['Jordan Pickford','John Stones','Marc Guéhi','Declan Rice','Jude Bellingham','Bukayo Saka','Harry Kane'],6],
- ['CRO','Croatia',82,h3('#ff0000','#fff','#171796'),[W,W,'#1f2a5c','c','#d40000'],'#1f2a5c',['Dominik Livaković','Joško Gvardiol','Josip Šutalo','Mateo Kovačić','Luka Modrić','Martin Baturina','Andrej Kramarić'],4],
- ['GHA','Ghana',74,'radial-gradient(circle,#111 0 12%,transparent 13%),'+h3('#ce1126','#fcd116','#006b3f'),[W,W,W],'#ce1126',['Lawrence Ati-Zigi','Mohammed Salisu','Alexander Djiku','Thomas Partey','Mohammed Kudus','Jordan Ayew','Antoine Semenyo'],4],
- ['PAN','Panama',73,'linear-gradient(90deg,#fff 50%,#d21034 50%) top/100% 50% no-repeat,linear-gradient(90deg,#005293 50%,#fff 50%) bottom/100% 50% no-repeat',['#d21034','#d21034','#d21034'],W,['Orlando Mosquera','Fidel Escobar','Michael Amir Murillo','Adalberto Carrasquilla','Aníbal Godoy','Édgar Bárcenas','José Fajardo'],3],
+ ['MEX','Mexico',79,'mx',['#0b6b3a',W,'#0b6b3a'],W,['Luis Malagón','César Montes','Johan Vásquez','Edson Álvarez','Luis Chávez','Alexis Vega','Santiago Giménez'],6],
+ ['RSA','South Africa',72,'za',['#ffd200','#0b6b3a','#ffd200'],W,['Ronwen Williams','Mothobi Mvala','Aubrey Modiba','Teboho Mokoena','Themba Zwane','Oswin Appollis','Lyle Foster'],6],
+ ['KOR','South Korea',78,'kr',['#d4213d','#151515','#d4213d'],W,['Jo Hyeon-woo|Jo Hyeon-woo','Kim Min-jae|Kim Min-jae','Seol Young-woo|Seol Young-woo','Hwang In-beom|Hwang In-beom','Lee Kang-in|Lee Kang-in','Hwang Hee-chan|Hwang Hee-chan','Son Heung-min|Son Heung-min'],6],
+ ['CZE','Czechia',76,'cz',['#d7141a',W,'#d7141a'],W,['Matěj Kovář','Vladimír Coufal','Ladislav Krejčí','Tomáš Souček','Lukáš Provod','Pavel Šulc','Patrik Schick'],6],
+ ['CAN','Canada',77,'ca',['#d52b1e','#d52b1e','#d52b1e'],W,['Dayne St. Clair','Alphonso Davies','Moïse Bombito','Stephen Eustáquio','Ismaël Koné','Tajon Buchanan','Jonathan David'],6],
+ ['BIH','Bosnia and Herzegovina',75,'ba',['#1f3f99','#1f3f99','#1f3f99'],W,['Nikola Vasilj','Sead Kolašinac','Amar Dedić','Amir Hadžiahmetović','Benjamin Tahirović','Ermedin Demirović','Edin Džeko'],6],
+ ['QAT','Qatar',70,'qa',['#8a1538','#8a1538','#8a1538'],W,['Meshaal Barsham','Pedro Miguel','Boualem Khoukhi','Karim Boudiaf','Abdulaziz Hatem','Akram Afif','Almoez Ali'],5],
+ ['SUI','Switzerland',79,'ch',['#d52b1e','#d52b1e','#d52b1e'],W,['Gregor Kobel','Manuel Akanji','Ricardo Rodríguez','Granit Xhaka','Remo Freuler','Dan Ndoye','Breel Embolo'],3],
+ ['BRA','Brazil',87,'br',['#ffdf00','#1f4fa8',W],'#1f4fa8',['Alisson','Marquinhos','Gabriel Magalhães','Casemiro','Bruno Guimarães','Raphinha','Vinícius Júnior|Vini Jr.'],6],
+ ['MAR','Morocco',82,'ma',['#c1272d','#0b6b3a','#c1272d'],W,['Yassine Bounou','Achraf Hakimi','Nayef Aguerd','Sofyan Amrabat','Azzedine Ounahi','Brahim Díaz','Youssef En-Nesyri'],1],
+ ['HAI','Haiti',65,'ht',['#00209f','#d21034','#00209f'],'#d21034',['Johny Placide','Ricardo Adé','Carlens Arcus','Leverton Pierre','Danley Jean Jacques','Derrick Etienne Jr.','Duckens Nazon'],6],
+ ['SCO','Scotland',76,'gb-sct',['#1c2a5e',W,'#1c2a5e'],W,['Angus Gunn','Andy Robertson','Kieran Tierney','Billy Gilmour','John McGinn','Scott McTominay','Ché Adams'],5],
+ ['USA','United States',80,'us',[W,'#1f2a5c',W],'#1f2a5c',['Matt Freese','Chris Richards','Antonee Robinson','Tyler Adams','Weston McKennie','Christian Pulisic','Folarin Balogun'],5],
+ ['PAR','Paraguay',76,'py',['#d52b1e','#1f2a5c','#1f2a5c','v',W],'#1f2a5c',['Gatito Fernández|Gatito','Gustavo Gómez','Omar Alderete','Diego Gómez','Miguel Almirón','Julio Enciso','Antonio Sanabria'],4],
+ ['AUS','Australia',75,'au',['#ffcd00','#00843d','#ffcd00'],'#00843d',['Mathew Ryan','Harry Souttar','Alessandro Circati','Jackson Irvine',"Aiden O'Neill",'Riley McGree','Mitchell Duke'],3],
+ ['TUR','Türkiye',80,'tr',['#e30a17',W,'#e30a17'],W,['Uğurcan Çakır','Merih Demiral','Ferdi Kadıoğlu','Hakan Çalhanoğlu','Arda Güler','Kenan Yıldız','Kerem Aktürkoğlu'],4],
+ ['GER','Germany',86,'de',[W,'#151515',W],'#151515',['Oliver Baumann','Antonio Rüdiger','Jonathan Tah','Joshua Kimmich','Florian Wirtz','Jamal Musiala','Kai Havertz'],5],
+ ['CUW','Curaçao',66,'cw',['#002b7f','#002b7f','#002b7f'],'#f9e814',['Eloy Room','Juriën Gaari','Sherel Floranus','Leandro Bacuna','Juninho Bacuna','Tahith Chong','Gervane Kastaneer'],3],
+ ['CIV','Ivory Coast',78,'ci',['#f77f00',W,'#009e60'],W,['Yahia Fofana','Evan Ndicka','Odilon Kossounou','Franck Kessié','Seko Fofana','Amad Diallo','Sébastien Haller'],5],
+ ['ECU','Ecuador',79,'ec',['#ffdd00','#034ea2','#ed1c24'],'#034ea2',['Hernán Galíndez','Piero Hincapié','Willian Pacho','Moisés Caicedo','Kendry Páez','Pervis Estupiñán','Enner Valencia'],3],
+ ['NED','Netherlands',85,'nl',['#ff7f00','#ff7f00','#ff7f00'],'#1f2a5c',['Bart Verbruggen','Virgil van Dijk','Denzel Dumfries','Frenkie de Jong','Tijjani Reijnders','Xavi Simons','Cody Gakpo'],1],
+ ['JPN','Japan',80,'jp',['#1b3a8a','#1b3a8a','#1b3a8a'],W,['Zion Suzuki','Ko Itakura','Takehiro Tomiyasu','Wataru Endo','Takefusa Kubo','Kaoru Mitoma','Ayase Ueda'],5],
+ ['SWE','Sweden',79,'se',['#fecc00','#006aa7','#fecc00'],'#006aa7',['Viktor Johansson','Victor Lindelöf','Isak Hien','Lucas Bergvall','Dejan Kulusevski','Alexander Isak','Viktor Gyökeres'],6],
+ ['TUN','Tunisia',74,'tn',['#e70013','#e70013','#e70013'],W,['Aymen Dahmen','Montassar Talbi','Ali Abdi','Ellyes Skhiri','Hannibal Mejbri','Anis Ben Slimane','Seifeddine Jaziri'],4],
+ ['BEL','Belgium',82,'be',['#c8102e','#c8102e','#c8102e'],'#151515',['Thibaut Courtois','Arthur Theate','Timothy Castagne','Youri Tielemans','Kevin De Bruyne','Jérémy Doku','Romelu Lukaku'],4],
+ ['EGY','Egypt',77,'eg',['#ce1126',W,'#151515'],W,['Mohamed El Shenawy','Mohamed Abdelmonem','Mohamed Hany','Marwan Attia','Emam Ashour','Omar Marmoush','Mohamed Salah'],6],
+ ['IRN','Iran',76,'ir',[W,W,W],'#da0000',['Alireza Beiranvand','Shojae Khalilzadeh','Milad Mohammadi','Saeid Ezatolahi','Alireza Jahanbakhsh','Mohammad Mohebi','Mehdi Taremi'],6],
+ ['NZL','New Zealand',68,'nz',[W,'#151515',W],'#151515',['Max Crocombe','Michael Boxall','Tyler Bindon','Joe Bell','Marko Stamenić','Sarpreet Singh','Chris Wood'],6],
+ ['ESP','Spain',90,'es',['#c60b1e','#1f2a5c','#1f2a5c'],'#f1bf00',['Unai Simón','Pau Cubarsí','Marc Cucurella','Rodri','Pedri','Lamine Yamal','Mikel Oyarzabal'],5],
+ ['CPV','Cape Verde',69,'cv',['#003893','#003893','#003893'],W,['Vozinha','Roberto Lopes','Logan Costa','Kevin Pina','Jamiro Monteiro','Ryan Mendes','Dailon Livramento'],5],
+ ['KSA','Saudi Arabia',72,'sa',[W,W,W],'#006c35',['Mohammed Al-Owais','Ali Al-Bulaihi','Saud Abdulhamid','Mohamed Kanno','Musab Al-Juwayr','Salem Al-Dawsari','Feras Al-Brikan'],5],
+ ['URU','Uruguay',82,'uy',['#7ab8e8','#151515','#151515'],W,['Sergio Rochet','Ronald Araújo','José María Giménez','Manuel Ugarte','Federico Valverde','Giorgian de Arrascaeta','Darwin Núñez'],4],
+ ['FRA','France',89,'fr',['#1d2f6f',W,'#d0102b'],W,['Mike Maignan','William Saliba','Jules Koundé','Aurélien Tchouaméni','Michael Olise','Ousmane Dembélé','Kylian Mbappé'],6],
+ ['SEN','Senegal',80,'sn',[W,W,W],'#00853f',['Édouard Mendy','Kalidou Koulibaly','Moussa Niakhaté','Pape Matar Sarr','Idrissa Gueye','Sadio Mané','Nicolas Jackson'],5],
+ ['IRQ','Iraq',70,'iq',['#007a3d','#007a3d','#007a3d'],W,['Jalal Hassan','Rebin Sulaka','Merchas Doski','Amir Al-Ammari','Zidane Iqbal','Ibrahim Bayesh','Aymen Hussein'],6],
+ ['NOR','Norway',81,'no',['#ba0c2f',W,'#1f2a5c'],W,['Ørjan Nyland','Kristoffer Ajer','Leo Østigård','Sander Berge','Martin Ødegaard','Antonio Nusa','Erling Haaland'],6],
+ ['ARG','Argentina',89,'ar',['#74acdf','#151515',W,'v',W],'#1b2a5a',['Emiliano Martínez','Cristian Romero','Nicolás Otamendi','Enzo Fernández','Alexis Mac Allister','Lionel Messi','Lautaro Martínez'],5],
+ ['ALG','Algeria',77,'dz',[W,W,W],'#006233',['Luca Zidane','Ramy Bensebaini','Aïssa Mandi','Ismaël Bennacer','Houssem Aouar','Riyad Mahrez','Mohamed Amoura'],5],
+ ['AUT','Austria',79,'at',['#ed2939',W,'#ed2939'],W,['Alexander Schlager','David Alaba','Kevin Danso','Konrad Laimer','Marcel Sabitzer','Christoph Baumgartner','Marko Arnautović'],4],
+ ['JOR','Jordan',70,'jo',[W,W,W],'#ce1126',['Yazeed Abulaila','Yazan Al-Arab','Abdallah Nasib','Nizar Al-Rashdan','Noor Al-Rawabdeh','Mousa Al-Tamari','Yazan Al-Naimat'],5],
+ ['POR','Portugal',86,'pt',['#c8102e','#0b5e2a','#c8102e'],W,['Diogo Costa','Rúben Dias','Nuno Mendes','Vitinha','Bruno Fernandes','Bernardo Silva','Cristiano Ronaldo'],6],
+ ['COD','DR Congo',73,'cd',['#007fff','#007fff','#007fff'],'#ce1021',['Lionel Mpasi','Chancel Mbemba','Arthur Masuaku','Samuel Moutoussamy','Gaël Kakuta','Théo Bongonda','Yoane Wissa'],6],
+ ['UZB','Uzbekistan',72,'uz',[W,W,W],'#0099b5',['Utkir Yusupov','Abdukodir Khusanov','Rustamjon Ashurmatov','Otabek Shukurov','Jaloliddin Masharipov','Abbosbek Fayzullaev','Eldor Shomurodov'],6],
+ ['COL','Colombia',82,'co',['#fcd116','#003893',W],'#003893',['Camilo Vargas','Dávinson Sánchez','Daniel Muñoz','Richard Ríos','James Rodríguez','Luis Díaz','Jhon Córdoba'],5],
+ ['ENG','England',87,'gb-eng',[W,'#1f2a5c',W],'#c8102e',['Jordan Pickford','John Stones','Marc Guéhi','Declan Rice','Jude Bellingham','Bukayo Saka','Harry Kane'],6],
+ ['CRO','Croatia',82,'hr',[W,W,'#1f2a5c','c','#d40000'],'#1f2a5c',['Dominik Livaković','Joško Gvardiol','Josip Šutalo','Mateo Kovačić','Luka Modrić','Martin Baturina','Andrej Kramarić'],4],
+ ['GHA','Ghana',74,'gh',[W,W,W],'#ce1126',['Lawrence Ati-Zigi','Mohammed Salisu','Alexander Djiku','Thomas Partey','Mohammed Kudus','Jordan Ayew','Antoine Semenyo'],4],
+ ['PAN','Panama',73,'pa',['#d21034','#d21034','#d21034'],W,['Orlando Mosquera','Fidel Escobar','Michael Amir Murillo','Adalberto Carrasquilla','Aníbal Godoy','Édgar Bárcenas','José Fajardo'],3],
 ];
 const POS=['GK','DF','DF','MF','MF','MF','FW'];
 const ROLE=['gk','def','def','mid','mid','mid','fwd'];
@@ -81,7 +75,7 @@ const CAPITAL={MEX:'Mexico City',RSA:'Johannesburg',KOR:'Seoul',CZE:'Prague',CAN
 Object.values(TM).forEach(t=>{const[nm,sh]=SUBS[t.id].split('|'),parts=nm.split(' ');
   t.sub={name:nm,short:sh||(parts.length>1?parts[0][0]+'. '+parts.slice(1).join(' '):nm),pos:'FW',role:'fwd',i:7,star:false,num:14,r:t.r,key:t.id+'-7'};t.capital=CAPITAL[t.id]});
 const GL=Object.keys(GROUPS);
-const flagHTML=(id,cls='')=>`<span class="flag ${cls}" style="background:${TM[id].flag}" aria-hidden="true"></span>`;
+const flagHTML=(id,cls='')=>`<span class="flag ${cls}" style="background-image:url(flags/${TM[id].flag}.svg)" aria-hidden="true"></span>`;
 
 /* =====================================================================
    HELPERS
