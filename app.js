@@ -176,7 +176,11 @@ function cleanSave(s){
     // the next fixture has to exist, or the tournament screen can't open
     if(out.stage==='group'&&out.md>2)return null;
     if(out.stage==='ko'){const r=out.rounds[out.rounds.length-1];if(!r||!r.ties.some(t=>(t.a===out.user||t.b===out.user)&&!t.w))return null}
-    if((out.stage==='out'||out.stage==='champ')&&!out.champion)return null;
+    if(out.stage==='champ'&&!out.champion)return null;
+    if(out.stage==='out'&&!out.champion){const r=out.rounds[out.rounds.length-1];if(!r||r.ties.length!==1||r.ties[0].w)return null}
+    if(s.sig!=null){if(typeof s.sig!=='string'||s.sig.length>90000||!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(s.sig))return null;out.sig=s.sig}
+    if(s.items!=null){if(!Array.isArray(s.items)||s.items.length>8||!s.items.every(x=>GIVEAWAYS.some(g=>g.id===x)))return null;out.items=[...new Set(s.items)]}
+    if(s.watchedFinal===true)out.watchedFinal=true;
     return out;
   }catch(e){return null}
 }
@@ -357,9 +361,11 @@ function nextRound(){const prev=S.rounds[S.rounds.length-1].ties;const ties=[];
 function simulateRest(){
   let r=S.rounds[S.rounds.length-1];
   r.ties.forEach(t=>{if(!t.w)simTie(t)});
-  while(r.ties.length>1){nextRound();r=S.rounds[S.rounds.length-1];r.ties.forEach(simTie)}
-  S.champion=r.ties[0].w;
+  while(r.ties.length>1){nextRound();r=S.rounds[S.rounds.length-1];if(r.ties.length>1)r.ties.forEach(simTie)}
+  if(r.ties[0].w)S.champion=r.ties[0].w;   // otherwise the final waits until it's watched or skipped
 }
+const finalPending=()=>!!(S&&S.stage==='out'&&!S.champion);
+function decideFinal(){if(!finalPending())return;const t=S.rounds[S.rounds.length-1].ties[0];simTie(t);S.champion=t.w;save()}
 function finishUserMatch(gf,ga,pens,meta){
   const fx=nextFixture();
   const ev=creditMatch(S.user,fx.opp,gf,ga,meta);
@@ -484,7 +490,7 @@ function afterMatch(){
    END SCREEN
    ===================================================================== */
 function renderEnd(){
-  const u=TM[S.user],champ=S.stage==='champ',c=TM[S.champion];
+  const u=TM[S.user],champ=S.stage==='champ',c=TM[S.champion],pend=finalPending(),fin=S.rounds.length?S.rounds[S.rounds.length-1].ties[0]:null;
   const bt=bootTable(),gt=gloveTable();
   const boot=bt[0]?`${pl(bt[0][0]).name} (${TM[bt[0][0].split('-')[0]].name}, ${bt[0][1].g} goals)`:'nobody';
   const glove=gt[0]?`${pl(gt[0][0]).name} (${TM[gt[0][0].split('-')[0]].name}, ${gt[0][1].cs} clean sheets)`:'nobody';
@@ -493,9 +499,10 @@ function renderEnd(){
    `<p class="eyebrow">${u.name} · World Cup 2026 winners</p><h1 class="gold">Champions</h1>
     <p class="lede">${u.name} won the World Cup. ${S.log.reduce((a,m)=>a+m.gf,0)} goals in ${S.log.length} matches, and ${esc(u.players[S.me].name)} chipped in ${mp.g} goals and ${mp.a} assists.</p>`:
    `<p class="eyebrow">${u.name} · Out in the ${S.out==='Group stage'?'group stage':S.out}</p><h1>Knocked out</h1>
-    <p class="lede">${S.out==='Group stage'?`${u.name} didn't make it out of Group ${GL[userGroup()]}.`:`${u.name} went out in the ${S.out}.`} ${c.name} went on to lift the trophy.</p>`)+
+    <p class="lede">${S.out==='Group stage'?`${u.name} didn't make it out of Group ${GL[userGroup()]}.`:`${u.name} went out in the ${S.out}.`} ${pend?`The final, ${TM[fin.a].name} vs ${TM[fin.b].name}, hasn't been played yet.`:`${c.name} went on to lift the trophy${S.watchedFinal?', and you watched it from the pitch':''}.`}</p>`)+
    `<p class="lede" style="font-size:17px;color:var(--mute)">Golden Boot: ${esc(boot)}. Golden Glove: ${esc(glove)}.</p>
-    <div class="end-actions">${champ?'<button type="button" class="btn primary" id="replayBtn">Watch the trophy lift again</button>':''}<button type="button" class="btn ${champ?'':'primary'}" id="againBtn">Play again as ${u.name}</button><button type="button" class="btn" id="newBtn">Pick another nation</button></div>
+    <div class="end-actions">${pend?'<button type="button" class="btn primary" id="watchBtn">Watch the final as a VIP guest</button>':''}${champ?'<button type="button" class="btn primary" id="replayBtn">Watch the trophy lift again</button>':''}<button type="button" class="btn ${champ||pend?'':'primary'}" id="againBtn">Play again as ${u.name}</button><button type="button" class="btn" id="newBtn">${pend?'Back to team select':'Pick another nation'}</button></div>
+    ${S.sig||(S.items&&S.items.length)?`<section class="panel"><h3>Your keepsakes</h3>${S.items&&S.items.length?`<p>From the hospitality village: ${S.items.map(id=>esc(GIVEAWAYS.find(g=>g.id===id).name)).join(', ')}.</p>`:''}${S.sig?`<div class="paper small"><img class="sig-img" src="${S.sig}" alt="Your signature"></div>`:''}</section>`:''}
     <div class="grid3"><section class="panel"><h3>${esc(u.players[S.me].short)}</h3><div class="mycard"><div><b>${mp.played}</b><small>Played</small></div><div><b>${mp.g}</b><small>Goals</small></div><div><b>${mp.a}</b><small>Assists</small></div><div><b>${(bt.findIndex(([k])=>k===meKey())+1)||'–'}</b><small>Boot rank</small></div></div></section>
     <section class="panel"><div class="award-h"><span class="medal"></span><h3>Golden Boot</h3></div>${lbHTML(bt.slice(0,6),v=>`${v.g}<small>${v.a} ast</small>`,'No goals.')}</section>
     <section class="panel"><div class="award-h"><span class="medal"></span><h3>Golden Glove</h3></div>${lbHTML(gt.slice(0,6),v=>`${v.cs} CS<small>${v.sv} saves</small>`,'No keepers yet.')}</section></div>
@@ -503,7 +510,8 @@ function renderEnd(){
     <section class="panel"><h3>Knockout bracket</h3>${bracketHTML()}</section>`;
   if(champ)$('#replayBtn').onclick=()=>startCelebration(S.user);
   $('#againBtn').onclick=()=>{newTournament(S.user,S.me);renderHub();show('s-hub')};
-  $('#newBtn').onclick=()=>{pick=S.user;pickMe=S.me;leaveRun()};
+  $('#newBtn').onclick=()=>{pick=S.user;pickMe=S.me;decideFinal();leaveRun()};
+  if(pend)$('#watchBtn').onclick=()=>startExplore('drive:stadium');
 }
 
 /* =====================================================================
@@ -837,7 +845,7 @@ function frame(t){
   const dt=Math.min(.05,(t-R.last)/1000||0);R.last=t;R.time+=dt;
   if(R.mode==='match')matchFrame(dt);else if(R.mode==='pens')pensFrame(dt);else if(R.mode==='celebrate')celebFrame(dt);else if(R.mode==='explore')exploreFrame(dt);
   R.boards.forEach(b=>{b.material.map.offset.x+=dt*.04});
-  R.renderer.render(R.mode==='explore'&&EX?EX.scene:R.scene,R.camera);
+  R.renderer.render(R.mode==='explore'&&EX&&!EX.inMain?EX.scene:R.scene,R.camera);
 }
 function startLoop(){if(!R.raf){R.last=performance.now();R.raf=requestAnimationFrame(frame)}}
 function stopLoop(){if(R&&R.raf){cancelAnimationFrame(R.raf);R.raf=0}}
@@ -876,28 +884,38 @@ function startMatch(opp,ko,label){
   if(!enterPlay('match'))return;
   const a=TM[S.user],b=TM[opp],kits=teamKits(a.id,b.id),boost=1+stageIndex()*.01;
   clearPlayers();clearExtras();
-  M={ids:[a.id,b.id],kits,ko,label,score:[0,0],clock:0,half:1,phase:'kickoff',phaseT:1,players:[],t:0,charge:0,restart:null,events:[],
-     st:{poss:[0,0],shots:[0,0],ot:[0,0],passes:[0,0],passOk:[0,0],tackles:[0,0],saves:[0,0],corners:[0,0]},
-     ball:{x:0,y:0,z:0,vx:0,vy:0,vz:0,owner:null,kicker:null,lockT:0,lastTeam:0,lastTouch:null,gkTried:false,target:null,shot:null,passFrom:null,passTeam:null},
-     paused:false,press:{shoot:false,pass:false},lastConcede:1,ch:[null,null],marker:null};
-  for(let t=0;t<2;t++){const dir=t?-1:1,team=TM[M.ids[t]];
-    team.players.forEach((d,i)=>{const p={team:t,dir,role:d.role,i,name:d.name,short:d.short,num:d.num,r:d.r,key:d.key,
-      hx:t?-HOME[i][0]:HOME[i][0],hy:HOME[i][1],x:0,y:0,vx:0,vy:0,tvx:0,tvy:0,fx:dir,fy:0,
-      spd:(5.3+(d.r-70)*.085)*(t?boost:1),stun:0,slide:0,slideCd:0,immune:0,tackleT:.2,tackleCd:0,think:0,hold:0,kickT:0,dive:null,stamina:1,call:0,saves:0};
-      const gkKit=t?['#ff6fb5','#151515','#ff6fb5']:['#c6f24a','#151515','#c6f24a'];
-      p.mesh=makePlayerMesh(d.role==='gk'?gkKit:kits[t],d.num,d.key,d.role==='gk');R.meshes.push(p.mesh);M.players.push(p)})}
+  M=newMatchState([a.id,b.id],kits,ko,label);
+  buildSquads(kits,boost);
   M.me=M.players.find(p=>p.team===0&&p.i===S.me);
   M.gks=[M.players.find(p=>p.team===0&&p.i===0),M.players.find(p=>p.team===1&&p.i===0)];
-  M.buff=S.buff||{};S.buff={};M.speed=1;M.subbed=false;M.subPending=0;M.walkOff=null;M.bench=[];
-  for(let t=0;t<2;t++){const bx=t?8:-8;
-    for(let k=0;k<3;k++){const f={x:bx-3+k*1.5,y:HW+3.5,vx:0,vy:0,fx:0,fy:-1,kickT:0,slide:0,dive:null,sit:true};f.mesh=makePlayerMesh(kits[t],12+k+(t?3:0),M.ids[t]+'-bench'+k,false);R.meshes.push(f.mesh);M.bench.push(f)}
-    const c={x:bx,y:HW+1.7,vx:0,vy:0,fx:0,fy:-1,kickT:0,slide:0,dive:null,coach:true,team:t};c.mesh=makePlayerMesh(['#1f2533','#1f2533','#111111'],'',M.ids[t]+'-coach',false,{trousers:'#1f2533'});R.meshes.push(c.mesh);M.bench.push(c)}
+  M.buff=S.buff||{};S.buff={};M.speed=1;M.subbed=false;M.subPending=0;M.walkOff=null;
+  buildBenches(kits);
   $('#subBtn').hidden=false;$('#ffBtn').hidden=true;$('#ffBtn').textContent='Fast-forward';
   setStadiumFor(a.id,b.id,label.toUpperCase());
   $('#bug').innerHTML=`<div class="t">${flagHTML(a.id)}${a.id}</div><div class="sc"><span id="gA">0</span>–<span id="gB">0</span></div><div class="t">${b.id}${flagHTML(b.id)}</div><div class="clk"><span id="clk">00:00</span><small id="half">1H</small></div>`;
   $('#mecard').innerHTML=`<b>${esc(M.me.short)}</b><small>#${M.me.num} · ${POS[M.me.i]} · You</small><div class="bar"><i id="stam"></i></div>`;
   $('#meTagName').textContent=M.me.short;
   kickoff(0);snapCam();whistle(1);
+}
+function newMatchState(ids,kits,ko,label){
+  return{ids,kits,ko,label,score:[0,0],clock:0,half:1,phase:'kickoff',phaseT:1,players:[],t:0,charge:0,restart:null,events:[],
+     st:{poss:[0,0],shots:[0,0],ot:[0,0],passes:[0,0],passOk:[0,0],tackles:[0,0],saves:[0,0],corners:[0,0]},
+     ball:{x:0,y:0,z:0,vx:0,vy:0,vz:0,owner:null,kicker:null,lockT:0,lastTeam:0,lastTouch:null,gkTried:false,target:null,shot:null,passFrom:null,passTeam:null},
+     paused:false,press:{shoot:false,pass:false},lastConcede:1,ch:[null,null],marker:null};
+}
+function buildSquads(kits,boost){
+  for(let t=0;t<2;t++){const dir=t?-1:1,team=TM[M.ids[t]];
+    team.players.forEach((d,i)=>{const p={team:t,dir,role:d.role,i,name:d.name,short:d.short,num:d.num,r:d.r,key:d.key,
+      hx:t?-HOME[i][0]:HOME[i][0],hy:HOME[i][1],x:0,y:0,vx:0,vy:0,tvx:0,tvy:0,fx:dir,fy:0,
+      spd:(5.3+(d.r-70)*.085)*(t?boost:1),stun:0,slide:0,slideCd:0,immune:0,tackleT:.2,tackleCd:0,think:0,hold:0,kickT:0,dive:null,stamina:1,call:0,saves:0};
+      const gkKit=t?['#ff6fb5','#151515','#ff6fb5']:['#c6f24a','#151515','#c6f24a'];
+      p.mesh=makePlayerMesh(d.role==='gk'?gkKit:kits[t],d.num,d.key,d.role==='gk');R.meshes.push(p.mesh);M.players.push(p)})}
+}
+function buildBenches(kits){
+  M.bench=[];
+  for(let t=0;t<2;t++){const bx=t?8:-8;
+    for(let k=0;k<3;k++){const f={x:bx-3+k*1.5,y:HW+3.5,vx:0,vy:0,fx:0,fy:-1,kickT:0,slide:0,dive:null,sit:true};f.mesh=makePlayerMesh(kits[t],12+k+(t?3:0),M.ids[t]+'-bench'+k,false);R.meshes.push(f.mesh);M.bench.push(f)}
+    const c={x:bx,y:HW+1.7,vx:0,vy:0,fx:0,fy:-1,kickT:0,slide:0,dive:null,coach:true,team:t};c.mesh=makePlayerMesh(['#1f2533','#1f2533','#111111'],'',M.ids[t]+'-coach',false,{trousers:'#1f2533'});R.meshes.push(c.mesh);M.bench.push(c)}
 }
 function kickoff(team){
   for(const p of M.players){const[x,y]=KICKPOS[p.i];p.x=p.team?-x:x;p.y=y;p.vx=p.vy=p.tvx=p.tvy=0;p.fx=p.dir;p.fy=0;p.stun=p.slide=0;p.dive=null;p.hold=0;p.kickT=0;p.celebrate=false}
@@ -1221,11 +1239,13 @@ function statsHTML(st){
 function ovTeams(){return`<div class="ov-teams">${flagHTML(M.ids[0])}${M.ids[0]} <span style="color:var(--gold)">${M.score[0]}–${M.score[1]}</span> ${M.ids[1]}${flagHTML(M.ids[1])}</div>`}
 function scorersLine(){return M.events.length?`<p class="eyebrow">${M.events.map(e=>`${M.ids[e.team]} · ${esc(e.name)}${e.og?' (og)':''} ${e.min}'`).join('  ·  ')}</p>`:''}
 function halfTime(){
+  if(M.watch){M.phase='ht';whistle(2);watchHalfTime();return}
   M.phase='ht';whistle(2);const ov=$('#overlay');ov.hidden=false;
   ov.innerHTML=`<p class="eyebrow">Half time · ${esc(M.label)}</p>${ovTeams()}${scorersLine()}${statsHTML(summStats())}<div class="ov-actions"><button type="button" class="btn primary" id="ovGo">Start the second half</button></div>`;
   $('#ovGo').onclick=()=>{ov.hidden=true;M.half=2;kickoff(1);whistle(1)};$('#ovGo').focus();
 }
 function endMatch(){
+  if(M.watch){M.phase='end';whistle(3);watchFullTime();return}
   M.phase='end';whistle(3);const[a,b]=M.score,ov=$('#overlay');ov.hidden=false;
   const st=summStats();M.meta={events:M.events.slice(),saves:[M.gks[0].saves,M.gks[1].saves],st};
   if(M.ko&&a===b){
@@ -1240,8 +1260,14 @@ function endMatch(){
   }
   $('#ovGo').focus();
 }
-function postButtons(){return`<div class="ov-actions"><button type="button" class="btn primary" id="ovGo">${S.stage==='champ'?'Lift the trophy':'Walk off through the tunnel'}</button><button type="button" class="btn" id="ovSkip">Skip ahead</button></div>`}
-function wirePost(){$('#ovGo').onclick=postMatch;$('#ovSkip').onclick=afterMatch}
+function postButtons(){
+  if(finalPending())return`<p>Your World Cup is over, but the final is still to come. Watch it from a VIP suite in New York New Jersey?</p><div class="ov-actions"><button type="button" class="btn primary" id="ovWatch">Watch the final as a VIP guest</button><button type="button" class="btn" id="ovSelect">Back to team select</button><button type="button" class="btn" id="ovGo">Walk off and fly home</button></div>`;
+  return`<div class="ov-actions"><button type="button" class="btn primary" id="ovGo">${S.stage==='champ'?'Lift the trophy':'Walk off through the tunnel'}</button><button type="button" class="btn" id="ovSkip">Skip ahead</button></div>`}
+function wirePost(){
+  if(finalPending()){$('#ovWatch').onclick=watchFinal;$('#ovSelect').onclick=toSelect;$('#ovGo').onclick=()=>{decideFinal();postMatch()};return}
+  $('#ovGo').onclick=postMatch;$('#ovSkip').onclick=afterMatch}
+function watchFinal(){leavePlay();startExplore('drive:stadium')}
+function toSelect(){decideFinal();leavePlay();leaveRun()}
 function postMatch(){leavePlay();if(S.stage==='champ'){startCelebration(S.user);return}startExplore('tunnel')}
 function setPause(on){
   if(!M||!R||R.mode!=='match'||M.phase==='end'||M.phase==='ht')return;M.paused=on;const ov=$('#overlay');
@@ -1456,7 +1482,7 @@ function makeTrophy(){
   g.traverse(o=>{if(o.isMesh)o.castShadow=true});
   g.scale.setScalar(.95);return g;
 }
-function startCelebration(teamId){
+function startCelebration(teamId,opts={}){
   if(!enterPlay('celebrate')){renderEnd();show('s-end');return}
   clearPlayers();clearExtras();
   const team=TM[teamId],kit=team.kit;
@@ -1465,7 +1491,7 @@ function startCelebration(teamId){
   const pod=new THREE.Mesh(new THREE.CylinderGeometry(4.2,4.6,.55,64),new THREE.MeshStandardMaterial({color:0x101724,roughness:.5,metalness:.4}));pod.position.y=.275;pod.receiveShadow=true;pod.castShadow=true;grp.add(pod);
   const rim=new THREE.Mesh(new THREE.TorusGeometry(4.25,.07,8,80),new THREE.MeshStandardMaterial({color:0xf0c04a,metalness:1,roughness:.25}));rim.rotation.x=Math.PI/2;rim.position.y=.55;grp.add(rim);
   const cap=team.star,order=[cap,...[0,1,2,3,4,5,6].filter(i=>i!==cap)];
-  CB={t:0,team,players:[],trophy:makeTrophy(),bursts:[],nextBurst:.4};
+  CB={t:0,team,players:[],trophy:makeTrophy(),bursts:[],nextBurst:.4,spectator:!!opts.spectator};
   order.forEach((idx,k)=>{const d=team.players[idx];const p={x:0,y:0,vx:0,vy:0,fx:0,fy:1,kickT:0,slide:0,dive:null,celebrate:false,i:idx,role:d.role};
     if(k===0){p.x=0;p.y=.9}else{const a=(k-1)/5*Math.PI*.95+Math.PI*.025;p.x=Math.cos(a)*-2.6;p.y=-Math.sin(a)*1.5+.2}
     p.mesh=makePlayerMesh(d.role==='gk'?['#c6f24a','#151515','#c6f24a']:kit,d.num,d.key,d.role==='gk');R.meshes.push(p.mesh);CB.players.push(p)});
@@ -1477,6 +1503,15 @@ function startCelebration(teamId){
   if(conf.instanceColor)conf.instanceColor.needsUpdate=true;grp.add(conf);
   R.ball.visible=false;
   const cel=$('#celeb'),bt=bootTable()[0];
+  if(CB.spectator){
+    cel.innerHTML=`<div><p class="eyebrow">You're on the pitch · New York New Jersey Stadium · 19 July 2026</p><h2>${esc(team.name)}</h2><p class="eyebrow">World Champions</p></div>
+      <div class="btm"><p>${esc(team.players[cap].name)} lifts the trophy right in front of you${bt?` · Golden Boot: ${esc(pl(bt[0]).name)} (${bt[1].g})`:''}</p><div class="ov-actions"><button type="button" class="btn primary" id="celebHome">Fly home</button><button type="button" class="btn" id="celebSelect">Back to team select</button><button type="button" class="btn" id="celebGo">See the final standings</button></div></div>`;
+    const endC=()=>{leavePlay();clearBursts();clearExtras();clearPlayers();CB=null;R.ball.visible=true;$('#celeb').hidden=true};
+    $('#celebHome').onclick=()=>{endC();startExplore('airport')};
+    $('#celebSelect').onclick=()=>{endC();leaveRun()};
+    $('#celebGo').onclick=()=>{endC();renderEnd();show('s-end')};
+    roar();clearTimeout(AU.rt);crowd(.45,1);return;
+  }
   cel.innerHTML=`<div><p class="eyebrow">New York New Jersey Stadium · 19 July 2026</p><h2>${esc(team.name)}</h2><p class="eyebrow">World Champions</p></div>
     <div class="btm"><p>${esc(team.players[cap].name)} lifts the trophy${bt?` · Golden Boot: ${esc(pl(bt[0]).name)} (${bt[1].g})`:''}</p><div class="ov-actions"><button type="button" class="btn primary" id="celebHome">Fly home as champions</button><button type="button" class="btn" id="celebGo">See the final standings</button></div></div>`;
   const endCeleb=()=>{leavePlay();clearBursts();clearExtras();clearPlayers();CB=null;R.ball.visible=true;$('#celeb').hidden=true};
@@ -1508,6 +1543,8 @@ function celebFrame(dt){
     for(let i=0;i<a.count;i++){bu.vel[i*3+1]-=6*dt;a.array[i*3]+=bu.vel[i*3]*dt;a.array[i*3+1]+=bu.vel[i*3+1]*dt;a.array[i*3+2]+=bu.vel[i*3+2]*dt;bu.vel[i*3]*=.985;bu.vel[i*3+2]*=.985}
     a.needsUpdate=true;bu.pts.material.opacity=Math.max(0,bu.life/2);
     if(bu.life<=0){R.scene.remove(bu.pts);bu.pts.geometry.dispose();bu.pts.material.dispose();return false}return true});
+  if(C.spectator){if(R.camera.fov!==58){R.camera.fov=58;R.camera.updateProjectionMatrix()}
+    R.camera.position.set(Math.sin(C.t*.22)*2.2,1.7,8.6);R.camera.lookAt(0,2.4,0);R.crowdTex.offset.y=Math.sin(C.t*14)*.004;return}
   const k=Math.min(1,C.t/4),ease=1-Math.pow(1-k,3),ang=Math.sin(C.t*.25)*.9,rad=22-13*ease,hgt=9-5.3*ease;
   R.camera.position.set(Math.sin(ang)*rad,hgt,Math.cos(ang)*rad);R.camera.lookAt(0,2.3+.4*ease,0);
   R.crowdTex.offset.y=Math.sin(C.t*14)*.004;
@@ -1521,7 +1558,7 @@ function clearBursts(){if(CB)CB.bursts.forEach(bu=>{R.scene.remove(bu.pts);bu.pt
 const HOSTS=['New York New Jersey','Los Angeles','Dallas','Miami','Atlanta','Seattle','San Francisco Bay Area','Boston','Philadelphia','Kansas City','Houston','Toronto','Vancouver','Mexico City','Guadalajara','Monterrey'];
 let EX=null,exMsgT=0;
 const KEY=()=>touchMode?'Use':'X';
-function curCity(){const l=S.log[S.log.length-1];return l&&l.label.includes('New York')?'New York New Jersey':HOSTS[hash(S.user+':'+S.log.length)%HOSTS.length]}
+function curCity(){const l=S.log[S.log.length-1];return S.watchedFinal||(l&&l.label.includes('New York'))?'New York New Jersey':HOSTS[hash(S.user+':'+S.log.length)%HOSTS.length]}
 const accent=t=>lum(t.kit[0])>.82?'#f0c23b':t.kit[0];
 const onAcc=c=>lum(c)>.6?'#111111':'#ffffff';
 function exMat(c,o={}){return new THREE.MeshStandardMaterial({color:c,roughness:o.r??.8,metalness:o.m??0,emissive:o.e??0x000000,emissiveIntensity:o.ei??1,transparent:o.op!=null,opacity:o.op??1,side:o.ds?THREE.DoubleSide:THREE.FrontSide})}
@@ -1584,14 +1621,15 @@ function activityFrame(dt){
 }
 function startExplore(kind){
   if(!enterPlay('explore'))return;
-  if(EX&&EX.scene)disposeTree(EX.scene);
+  dropExploreScene();
   const sc=new THREE.Scene();sc.environment=R.scene.environment;
   EX={kind,scene:sc,walls:[],circles:[],items:[],upd:[],people:[],p:{x:0,z:0,yaw:0,bob:0},act:false,t:0,paused:false,crowd:0,activity:null,camPos:new THREE.Vector3(),camLook:new THREE.Vector3()};
   const[k,arg]=kind.split(':');
-  ({tunnel:buildTunnel,hotel:buildHotel,airport:buildAirport,arrival:buildArrival,home:buildHome,drive:()=>buildDrive(arg)})[k]();
+  ({tunnel:buildTunnel,hotel:buildHotel,airport:buildAirport,arrival:buildArrival,home:buildHome,village:buildVillage,vip:buildVIP,drive:()=>buildDrive(arg)})[k]();
   $('#exPlace').textContent=EX.place;$('#exGoal').textContent=EX.goal;$('#exMsg').hidden=true;$('#actHud').hidden=true;
   crowd(EX.crowd,1);
 }
+function dropExploreScene(){if(EX&&EX.scene){if(EX.inMain)R.scene.remove(EX.scene);disposeTree(EX.scene);EX.scene=null}}
 function exploreFrame(dt){
   EX.t+=dt;
   if(EX.drive){driveFrame(dt);EX.act=false;return}
@@ -1618,7 +1656,7 @@ function exploreFrame(dt){
     if(EX.act&&best&&!EX.paused)best.act();
   }
   EX.act=false;
-  const eye=EX.swim?.62+Math.sin(EX.t*2.2)*.05:1.65+Math.sin(P.bob)*.03;
+  const eye=EX.swim?.62+Math.sin(EX.t*2.2)*.05:(EX.floorY||0)+1.65+Math.sin(P.bob)*.03;
   R.camera.position.set(P.x,eye,P.z);EX.camLook.set(P.x+Math.cos(P.yaw)*5,eye-(EX.swim?0:.3),P.z+Math.sin(P.yaw)*5);R.camera.lookAt(EX.camLook);EX.camPos.copy(R.camera.position);
 }
 
@@ -1704,8 +1742,8 @@ function windowTex(){const c=document.createElement('canvas');c.width=128;c.heig
   for(let y=6;y<250;y+=14)for(let x=6;x<122;x+=14)if(Math.random()<.5){g.fillStyle=Math.random()<.8?'#ffd98a':'#9fd3ff';g.fillRect(x,y,7,8)}
   const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;t.wrapS=t.wrapT=THREE.RepeatWrapping;return t}
 function buildDrive(dest){
-  const u=TM[S.user],acc=accent(u),sc=EX.scene,city=dest==='home'?u.capital:curCity();
-  const where=dest==='hotel'?'the team hotel':dest==='airport'?'the airport':'your house';
+  const u=TM[S.user],acc=accent(u),sc=EX.scene,city=dest==='home'?u.capital:dest==='stadium'?'New York New Jersey':curCity();
+  const where=dest==='hotel'?'the team hotel':dest==='airport'?'the airport':dest==='stadium'?'New York New Jersey Stadium':'your house';
   EX.drive=true;EX.dest=dest;EX.cockpit=false;
   EX.place=dest==='home'?`${u.capital} · Driving home`:`${city} · Driving to ${where}`;
   EX.goal=`Follow the gold arrow to ${where}. ${touchMode?'Stick up to drive, down to brake, left and right to steer.':'W to drive, S to brake or reverse, A and D to steer, C to change camera.'}`;
@@ -1738,16 +1776,20 @@ function buildDrive(dest){
     add(new THREE.BoxGeometry(10,4,.4),acc,0,2,-9.3,{e:acc,ei:.4})}
   else if(dest==='airport'){add(new THREE.BoxGeometry(70,12,24),'#8fa3b8',0,6,0,{m:.4,r:.3});add(new THREE.BoxGeometry(70.2,4,24.2),'#5fa8e0',0,8,0,{e:0x2a6fa8,ei:.4,op:.8});
     add(new THREE.CylinderGeometry(2,2.6,30,12),'#c9d1da',40,15,6);add(new THREE.CylinderGeometry(4.5,3.5,4,12),'#5fa8e0',40,32,6,{e:0x2a6fa8,ei:.5})}
+  else if(dest==='stadium'){add(new THREE.CylinderGeometry(55,62,30,56,1,true),'#2a3142',0,15,40,{ds:true});
+    const ring=add(new THREE.TorusGeometry(56,.9,8,72),'#ffffff',0,30,40,{e:0xffffff,ei:1.6});ring.rotation.x=Math.PI/2;
+    for(let k=0;k<4;k++){const a=k/4*Math.PI*2+Math.PI/4;add(new THREE.BoxGeometry(8,4,1),'#fffbea',Math.cos(a)*62,42,40+Math.sin(a)*62,{e:0xfffbea,ei:1.4})}
+    add(new THREE.BoxGeometry(14,5,.6),'#8a1020',0,2.5,-14,{e:0x8a1020,ei:.3})}
   else{add(new THREE.BoxGeometry(12,6,10),'#d8c8a8',0,3,0);const roof=add(new THREE.ConeGeometry(9,5,4),'#7a3b2e',0,8.5,0);roof.rotation.y=Math.PI/4;
     add(new THREE.BoxGeometry(1.6,2.6,.2),'#5a3b24',0,1.3,-5.1);add(new THREE.BoxGeometry(1.8,1.4,.2),'#ffd98a',-3.5,3.5,-5.1,{e:0xffc870,ei:.9});add(new THREE.BoxGeometry(1.8,1.4,.2),'#ffd98a',3.5,3.5,-5.1,{e:0xffc870,ei:.9});
     add(new THREE.BoxGeometry(18,.05,8),'#2f6b3a',0,.03,-10);add(new THREE.BoxGeometry(.1,5,.1),'#dddddd',-7,2.5,-7);
     const fl=add(new THREE.BoxGeometry(.05,1.2,1.8),u.kit[0],-7,4.3,-6.1,{ds:true});EX.upd.push(()=>{fl.rotation.y=Math.sin(EX.t*3)*.3})}
-  const signTxt=dest==='hotel'?`${u.name.toUpperCase()} TEAM HOTEL`:dest==='airport'?'AIRPORT · DEPARTURES':'HOME';
+  const signTxt=dest==='hotel'?`${u.name.toUpperCase()} TEAM HOTEL`:dest==='airport'?'AIRPORT · DEPARTURES':dest==='stadium'?'NEW YORK NEW JERSEY STADIUM':'HOME';
   const st=sign(signTxt,0,0,0,dest==='home'?5:14,dest==='home'?1:2,0,{bg:dest==='airport'?'#123a6b':'#0b1310',fg:dest==='airport'?'#ffffff':'#f0c23b'});
-  sc.remove(st);st.position.set(0,dest==='home'?6.3:dest==='airport'?14:4.6,dest==='home'?-5.2:dest==='airport'?-12.2:-9.6);st.rotation.y=Math.PI;land.add(st);
+  sc.remove(st);st.position.set(0,dest==='home'?6.3:dest==='airport'?14:dest==='stadium'?8:4.6,dest==='home'?-5.2:dest==='airport'?-12.2:dest==='stadium'?-14.4:-9.6);st.rotation.y=Math.PI;land.add(st);
   const goalRing=new THREE.Mesh(new THREE.RingGeometry(5,5.8,48),new THREE.MeshBasicMaterial({color:0xf0c23b,side:THREE.DoubleSide}));goalRing.rotation.x=-Math.PI/2;goalRing.position.set(EX.destPt.x,.08,EX.destPt.z);sc.add(goalRing);
   EX.upd.push(()=>{goalRing.scale.setScalar(1+Math.sin(EX.t*4)*.06)});
-  if(dest!=='home'){const st2=new THREE.Mesh(new THREE.CylinderGeometry(55,60,26,48,1,true),exMat('#2a3142',{ds:true}));st2.position.set(0,13,75);sc.add(st2);
+  if(dest==='hotel'||dest==='airport'){const st2=new THREE.Mesh(new THREE.CylinderGeometry(55,60,26,48,1,true),exMat('#2a3142',{ds:true}));st2.position.set(0,13,75);sc.add(st2);
     const lights=new THREE.Mesh(new THREE.TorusGeometry(56,.8,8,64),exMat('#ffffff',{e:0xffffff,ei:1.5}));lights.rotation.x=Math.PI/2;lights.position.set(0,26,75);sc.add(lights)}
   else{const t=new THREE.Mesh(new THREE.BoxGeometry(60,12,20),exMat('#8fa3b8',{m:.4}));t.position.set(0,6,40);sc.add(t)}
   // traffic in the other lane
@@ -1792,7 +1834,7 @@ function driveFrame(dt){
   const pr=$('#exPrompt');pr.hidden=false;pr.innerHTML=`<b style="font-family:var(--display);font-size:22px">${Math.round(Math.abs(C.v)*3.6)} km/h</b> · ${Math.round(left)} m to go`;
 }
 function arriveDrive(){if(EX.leaving&&EX.arrived)return;EX.leaving=true;EX.arrived=true;const d=EX.dest,u=TM[S.user];
-  cutscene(d==='home'?u.capital:curCity(),d==='hotel'?'You pull up at the team hotel':d==='airport'?'You park at the airport':'You pull into the driveway',1500,()=>startExplore(d==='hotel'?'hotel':d==='airport'?'airport':'home'))}
+  cutscene(d==='home'?u.capital:d==='stadium'?'New York New Jersey':curCity(),d==='hotel'?'You pull up at the team hotel':d==='airport'?'You park at the airport':d==='stadium'?'You park at the stadium. The hospitality village is buzzing':'You pull into the driveway',1600,()=>startExplore(d==='hotel'?'hotel':d==='airport'?'airport':d==='stadium'?'village':'home'))}
 
 /* ---------- 3. team hotel ---------- */
 function fanMail(){const u=TM[S.user],m=[`"My whole street watches every game. Bring it home!" — a fan in ${u.capital}`,`A drawing from a school class in ${u.capital}, with your number on the back.`,`"Fresh boots in your locker for matchday." — the kit man`,`"Good luck from everyone at the hotel. We're cheering for ${u.name}!" — the staff`];return m[(Math.random()*m.length)|0]}
@@ -1959,8 +2001,8 @@ function buildArrival(){
   const fans=[];for(let k=0;k<18;k++){const side=k%2?1:-1,col=(k>>1)%6,row=(k>>1)>5?1:0;
     fans.push(person(u.kit,7+k,'fan'+k,side*(4.4+col*1.45),2.1+row*1.4+(k%3)*.2,-Math.PI/2,{wave:k%4===0?2:1}))}
   const fam=[person(['#6a8caf','#334455','#f4f4f4'],'','fam1',2.2,4.6,-Math.PI/2,{trousers:'#334455',wave:1}),person(['#c46a7a','#2a2a35','#f4f4f4'],'','fam2',3.2,4.8,-Math.PI/2,{trousers:'#2a2a35'})];
-  item(-6,-.3,'Sign autographs for the fans',()=>startActivity({title:'Autographs',cam:[-6,1.6,-.6],look:[-6,1.3,2.5],taps:6,hint:A=>`Press ${KEY()} to sign (${A.n}/6 signed)`,
-    onTap:()=>{crowd(.45,.1);setTimeout(()=>crowd(.32,1),400)},done:()=>exMsg('Shirts, a flag and somebody\'s forehead. The fans go wild.')}),3.6);
+  item(-6,-.3,'Sign an autograph for the fans',()=>{startActivity({title:'Autographs',cam:[-6,1.6,-.6],look:[-6,1.3,2.5],cancel:false});
+    signAutograph(`a fan in ${cap}`,()=>{roar();exMsg('The fans go wild. Someone is already framing it.')})},3.6);
   item(6,-.3,'Take selfies with the fans',()=>startActivity({title:'Selfies',cam:[6,1.6,-.6],look:[6,1.4,2.5],taps:4,hint:A=>`Press ${KEY()} to smile for the photo (${A.n}/4)`,
     onTap:()=>flash(),done:()=>exMsg(`Every phone in ${cap} seems to be pointed at you.`)}),3.6);
   item(2.6,1,'Hug your family',()=>startActivity({title:'Family',cam:[2.6,1.6,.2],look:[2.7,1.5,2.5],dur:3.2,
@@ -2000,6 +2042,307 @@ function buildHome(){
   item(5.4,4.8,'Go to bed',()=>startActivity({title:'Home at last',cam:[5.4,1.6,4.6],look:[5.4,1.5,6],dur:2,cancel:false,
     done:()=>{EX.leaving=true;cutscene(u.capital,champ?'Sleeping as a world champion':'The end of your World Cup',2000,toEnd)}}),1.8);
   EX.p={x:-4,z:4.5,yaw:-Math.PI/4,bob:0};
+}
+
+/* =====================================================================
+   WATCH THE FINAL — for players knocked out before the final.
+   Drive to New York New Jersey, wander the hospitality village, take the VIP
+   lane and lift up to a suite, and watch the real final live from the glass.
+   ===================================================================== */
+const GIVEAWAYS=[{id:'scarf',name:'World Cup 2026 scarf',col:'#c8102e'},{id:'hat',name:'bucket hat',col:'#f0c23b'},{id:'ball',name:'mini match ball',col:'#ffffff'},{id:'poster',name:'final-day poster',col:'#2b6fd0'}];
+// Real people, so their lines stay short, friendly and about the match.
+const CELEBS=[
+  {n:'Ryan Reynolds',k:'Film star',look:['#2b3a55','#1c2333','#111111'],line:'Owning a football club taught me to love this game. A World Cup final is something else.'},
+  {n:'Will Ferrell',k:'Film star',look:['#6b1f24','#222222','#111111'],line:'I am here strictly as a fan. A very, very loud fan.'},
+  {n:'Eva Longoria',k:'Film star',look:['#1d1d1d','#1d1d1d','#111111'],line:'Look at this stadium. I have goosebumps already.'},
+  {n:'Shakira',k:'Halftime show',look:['#d4af37','#3a2a1a','#111111'],line:'I head down for the halftime show soon. Make some noise for us!',perf:true},
+  {n:'Burna Boy',k:'Halftime show',look:['#0b6b3a','#111111','#111111'],line:'Big night! Make sure you watch the halftime show.',perf:true},
+  {n:'David Beckham',k:'England legend',look:['#1f2a5c','#1f2a5c','#111111'],line:'I still get nervous at finals, even when I\'m only watching.',legend:true},
+  {n:'Thierry Henry',k:'France legend',look:['#2a2f3a','#2a2f3a','#111111'],line:'Watch the movement off the ball. That is where finals are won.',legend:true},
+  {n:'Alex Morgan',k:'USA legend',look:['#f4f4f4','#1f2a5c','#111111'],line:'I miss nights like this. Enjoy every second of it.',legend:true}];
+const SUITE={x0:-9,x1:9,z0:34.6,z1:42.3,y:9.5};   // the suite sits above the lower stand on the near touchline
+
+/* ---------- signing autographs: draw it once, reuse it everywhere ---------- */
+function sigPNG(cv){const o=document.createElement('canvas');o.width=360;o.height=140;o.getContext('2d').drawImage(cv,0,0,360,140);return o.toDataURL('image/png')}
+function signAutograph(who,done){
+  EX.paused=true;const ov=$('#overlay');ov.hidden=false;
+  const close=()=>{ov.hidden=true;EX.paused=false;if(EX.activity)endActivity();if(done)done()};
+  const signed=()=>{ov.innerHTML=`<p class="eyebrow">Autograph for ${esc(who)}</p><div class="paper"><img class="sig-img signing" src="${S.sig}" alt="Your signature"></div><p>They can't stop smiling.</p><div class="ov-actions"><button type="button" class="btn primary" id="sigOk">Hand it back</button></div>`;
+    $('#sigOk').onclick=close;$('#sigOk').focus();tone(520,.12,.05)};
+  const draw=()=>{
+    ov.innerHTML=`<p class="eyebrow">Autograph for ${esc(who)}</p><div class="paper"><canvas id="sigPad" width="720" height="280" aria-label="Signature pad: draw your signature"></canvas><span class="paper-hint" id="sigHint">Sign here with your mouse, trackpad or finger</span></div><div class="ov-actions"><button type="button" class="btn" id="sigClear">Clear</button><button type="button" class="btn primary" id="sigDone" disabled>Sign it</button></div>`;
+    const cv=$('#sigPad'),g=cv.getContext('2d');g.lineCap=g.lineJoin='round';g.strokeStyle='#1b2a6b';g.lineWidth=5;
+    let down=false,last=null,ink=0;
+    const at=e=>{const r=cv.getBoundingClientRect();return{x:(e.clientX-r.left)*cv.width/r.width,y:(e.clientY-r.top)*cv.height/r.height}};
+    cv.addEventListener('pointerdown',e=>{down=true;last=at(e);try{cv.setPointerCapture(e.pointerId)}catch(_){}e.preventDefault();$('#sigHint').hidden=true});
+    cv.addEventListener('pointermove',e=>{if(!down)return;const p=at(e);g.beginPath();g.moveTo(last.x,last.y);g.lineTo(p.x,p.y);g.stroke();ink+=Math.hypot(p.x-last.x,p.y-last.y);last=p;if(ink>60)$('#sigDone').disabled=false});
+    ['pointerup','pointercancel'].forEach(ev=>cv.addEventListener(ev,()=>down=false));
+    $('#sigClear').onclick=()=>{g.clearRect(0,0,cv.width,cv.height);ink=0;$('#sigDone').disabled=true;$('#sigHint').hidden=false};
+    $('#sigDone').onclick=()=>{S.sig=sigPNG(cv);save();signed()}};
+  if(S.sig){ov.innerHTML=`<p class="eyebrow">Autograph for ${esc(who)}</p><div class="paper"><img class="sig-img" src="${S.sig}" alt="Your saved signature"></div><p>Sign with your usual signature, or draw a new one.</p><div class="ov-actions"><button type="button" class="btn primary" id="sigUse">Sign with my signature</button><button type="button" class="btn" id="sigNew">Draw a new signature</button></div>`;
+    $('#sigUse').onclick=signed;$('#sigNew').onclick=draw;$('#sigUse').focus()}
+  else draw();
+}
+
+/* ---------- small helpers for these scenes ---------- */
+function nameTag(text,sub,x,y,z){const c=document.createElement('canvas');c.width=512;c.height=128;const g=c.getContext('2d');
+  g.fillStyle='rgba(6,10,8,.85)';g.fillRect(0,0,512,128);g.textAlign='center';g.fillStyle='#f0c23b';g.font='800 54px "Big Shoulders Display",Impact,sans-serif';g.fillText(text.toUpperCase(),256,60);
+  g.fillStyle='#eef4ea';g.font='600 30px "Barlow Semi Condensed",sans-serif';g.fillText(sub,256,104);
+  const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true}));sp.scale.set(1.5,.375,1);sp.position.set(x,y,z);EX.scene.add(sp);return sp}
+function foodStack(x,y,z,layers){const out=[];let yy=y;for(const[w,h,d,c]of layers){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),exMat(c));m.position.set(x,yy+h/2,z);EX.scene.add(m);out.push(m);yy+=h}return out}
+function eatPieces(title,cam,look,pieces,msg,buffKey){
+  const n=pieces.length,plate=new THREE.Mesh(new THREE.CylinderGeometry(.3,.26,.02,24),exMat('#f4f4f4'));plate.position.set(look[0],pieces[0].position.y-pieces[0].geometry.parameters.height/2-.01,look[2]);EX.scene.add(plate);
+  startActivity({title,cam,look,taps:n,hint:A=>`Press ${KEY()} to take a bite (${A.n}/${n})`,
+    onTap:()=>{const f=pieces.pop();if(f){EX.scene.remove(f);f.geometry.dispose()}},
+    end:()=>{pieces.forEach(f=>EX.scene.remove(f));EX.scene.remove(plate)},done:()=>{if(buffKey)setBuff(buffKey);exMsg(msg)}})
+}
+const FOODS={
+  pastrami:[[.24,.03,.13,'#a87a4a'],[.22,.035,.12,'#b5524a'],[.22,.035,.12,'#c0605a'],[.22,.035,.12,'#b5524a'],[.22,.035,.12,'#c0605a'],[.24,.03,.13,'#a87a4a']],
+  hotdog:[[.26,.05,.09,'#e0b070'],[.28,.035,.045,'#8a3a22'],[.22,.012,.025,'#e8c020']],
+  pizza:[[.26,.015,.22,'#e8c27a'],[.24,.01,.2,'#d23a2a'],[.23,.01,.19,'#f3e3b0'],[.08,.01,.08,'#9a2a1a']],
+  pretzel:[[.2,.04,.2,'#8a4a1a'],[.16,.035,.16,'#9a5a2a'],[.1,.03,.1,'#8a4a1a']],
+  burger:[[.2,.04,.2,'#d89a4a'],[.21,.04,.21,'#5a2e1a'],[.22,.01,.22,'#f0c030'],[.22,.012,.22,'#5aa03a'],[.2,.06,.2,'#d89a4a']],
+  buffet:[[.2,.03,.14,'#f3e3b0'],[.16,.04,.1,'#c0605a'],[.12,.04,.12,'#5aa03a'],[.1,.04,.1,'#e8c020'],[.08,.05,.08,'#7a3a8a']]};
+
+/* ---------- 1. the hospitality village ---------- */
+function buildVillage(){
+  const u=TM[S.user],sc=EX.scene,fin=S.rounds[S.rounds.length-1].ties[0];
+  EX.place='New York New Jersey · Hospitality village';
+  EX.goal=`Kickoff soon: ${TM[fin.a].name} vs ${TM[fin.b].name}. Grab some food and freebies, sign for the fans, then head for the VIP entrance.`;
+  EX.skip=()=>{EX.leaving=true;startExplore('vip')};EX.crowd=.22;
+  sc.background=new THREE.Color(0x0a1022);sc.fog=new THREE.Fog(0x0a1022,60,160);
+  sc.add(new THREE.HemisphereLight(0xcfd8ff,0x2a2a2a,.55));
+  B(80,.1,70,'#24282d',0,-.1,-15,{r:1});
+  for(const[x0,x1,z0,z1]of[[-34,-33.5,-44,14],[33.5,34,-44,14],[-34,34,13.5,14],[-34,-2.5,-44,-43.5],[2.5,34,-44,-43.5]])EX.walls.push({x0,x1,z0,z1});
+  // the stadium looms behind the VIP gate
+  const bowl=new THREE.Mesh(new THREE.CylinderGeometry(55,60,34,56,1,true),exMat('#2a3142',{ds:true}));bowl.position.set(0,17,-100);sc.add(bowl);
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(56,1,8,72),exMat('#ffffff',{e:0xffffff,ei:1.6}));ring.rotation.x=Math.PI/2;ring.position.set(0,34,-100);sc.add(ring);
+  sign('NEW YORK NEW JERSEY STADIUM',0,22,-38,30,3,0,{bg:'#0b1310',fg:'#f0c23b'});
+  // VIP gate
+  B(.6,5,.6,'#d4af37',-2.6,0,-42.5,{m:.8,r:.3,solid:true});B(.6,5,.6,'#d4af37',2.6,0,-42.5,{m:.8,r:.3,solid:true});
+  sign('VIP ENTRANCE · SUITES',0,5.4,-42.5,6.6,1,0,{bg:'#8a1020',fg:'#ffffff'});B(4,.02,12,'#8a1020',0,0,-36,{r:1});
+  item(0,-40.5,'Show your VIP pass and head inside',()=>{EX.leaving=true;cutscene('VIP entrance','You flash your pass. A steward waves you through',1600,()=>startExplore('vip'))},2.6);
+  // string lights
+  const bulbs=['#ffd27a','#ff7a7a','#7adfff','#b5ff7a'];let bi=0;
+  for(const z of[-32,-20,-8,4])for(let x=-30;x<=30;x+=2.5){const col=bulbs[bi++%4],b=new THREE.Mesh(new THREE.SphereGeometry(.09,8,6),exMat(col,{e:col,ei:1.2}));b.position.set(x,5.2+Math.sin(x*.4)*.4,z);sc.add(b)}
+  for(const[x,z]of[[-14,-28],[14,-28],[-14,-10],[14,-10],[0,2],[0,-22]])pointLight(x,6,z,.9,22,0xffe2b8);
+  // food stalls down both sides
+  const stall=(x,z,name,col,food,title,msg)=>{const s=x<0?1:-1;
+    B(4.5,2.6,4,'#2a2f3a',x,0,z,{solid:true});B(4.8,.3,5,col,x+s*.4,2.6,z,{e:col,ei:.15});B(.6,1,4,'#6b4a2f',x+s*2.55,0,z,{solid:true});
+    sign(name,x+s*2.3,3.4,z,4.2,.8,s>0?Math.PI/2:-Math.PI/2,{bg:col,fg:onAcc(col)});
+    person(['#f4f4f4','#2a2f3a','#111111'],'','vendor'+z+x,x+s*1.6,z,s>0?0:Math.PI,{trousers:'#2a2f3a'});
+    item(x+s*3.6,z,title,()=>{const cx=x+s*2.55,top=1;eatPieces(name,[x+s*3.4,1.55,z],[cx,top,z],foodStack(cx,top+.01,z,FOODS[food]),msg)},2.4)};
+  stall(-16,-26,"KATZ'S DELI",'#c8102e','pastrami','Order a pastrami on rye at Katz\'s','Piled impossibly high, still warm. Worth the trip.');
+  stall(-16,-13,'NEW YORK HOT DOGS','#e8a020','hotdog','Get a New York hot dog','Mustard, onions, gone in three bites.');
+  stall(-16,0,'PIZZA BY THE SLICE','#2f8a3a','pizza','Grab a slice of pizza','Fold it in half like a local. Perfect.');
+  stall(16,-26,'SOFT PRETZELS','#8a4a1a','pretzel','Buy a soft pretzel','Salty, warm and doughy.');
+  stall(16,-13,'BBQ & BURGERS','#5a2e1a','burger','Order a smash burger','Juicy, messy, excellent.');
+  // giveaway tables
+  GIVEAWAYS.forEach((gv,i)=>{const x=i<2?-6:6,z=i%2?-4:-16;
+    B(3,.9,1.2,'#1b2232',x,0,z,{solid:true});B(.4,.35,.4,gv.col,x,.9,z);sign(`FREE ${gv.name.toUpperCase()}`,x,2.2,z,3,.5,0,{bg:'#f0c23b',fg:'#0b1310'});
+    person(['#2b6fd0','#1f2533','#111111'],'','vol'+i,x,z-1.1,Math.PI/2,{trousers:'#1f2533'});
+    item(x,z+1.3,`Grab a free ${gv.name}`,()=>startActivity({title:'Giveaway',cam:[x,1.6,z+1.4],look:[x,1,z],dur:1.4,hint:'A volunteer hands it over with a smile.',
+      done:()=>{S.items=[...new Set([...(S.items||[]),gv.id])];save();exMsg(`The ${gv.name} is in your bag.`)}}),2,()=>!(S.items||[]).includes(gv.id))});
+  // fans wandering, some of whom recognise you
+  const teams=Object.keys(TM);EX.fans=[];
+  for(let k=0;k<16;k++){const t=teams[(hash('vf'+k+S.user)%teams.length)];const f=person(TM[t].kit,'','vfan'+k,rnd(-10,10),rnd(-34,8),rnd(0,6),{});f.team=t;f.tx=f.x;f.tz=f.y;EX.fans.push(f)}
+  EX.nextFan=6;EX.asking=null;
+  const fanItem=item(0,0,'',()=>{const f=EX.asking;startActivity({title:'Autograph',cam:[EX.p.x,1.6,EX.p.z],look:[f.x,1.5,f.y],cancel:false});
+    signAutograph(`a fan from ${TM[f.team].name}`,()=>{f.o={wave:2};f.cheer=3;EX.asking=null;f.coming=false;EX.nextFan=22;crowd(.35,.1);setTimeout(()=>crowd(.22,1),900)})},2.6,()=>!!EX.asking);
+  EX.upd.push(dt=>{
+    for(const f of EX.fans){
+      if(f.cheer>0){f.cheer-=dt;if(f.cheer<=0){f.o={};f.tx=rnd(-10,10);f.tz=rnd(-34,8)}}
+      if(f===EX.asking){f.vx=f.vy=0;const dx=EX.p.x-f.x,dz=EX.p.z-f.y,d=Math.hypot(dx,dz)||1;f.fx=dx/d;f.fy=dz/d;continue}
+      if(f.coming){f.tx=EX.p.x;f.tz=EX.p.z}
+      const dx=f.tx-f.x,dz=f.tz-f.y,d=Math.hypot(dx,dz);
+      if(f.coming&&d<1.6){EX.asking=f;exMsg(`A fan from ${TM[f.team].name} spots you: "No way! Can I get your autograph?"`);continue}
+      if(d<.4){f.vx=f.vy=0;if(Math.random()<dt*.4){f.tx=rnd(-10,10);f.tz=rnd(-34,8)}continue}
+      const sp=f.coming?2:1.1;f.vx=dx/d*sp;f.vy=dz/d*sp;f.x+=f.vx*dt;f.y+=f.vy*dt;f.fx=dx/d;f.fy=dz/d}
+    if(!EX.asking&&!EX.activity&&!EX.paused&&!EX.fans.some(f=>f.coming)){EX.nextFan-=dt;
+      if(EX.nextFan<=0){let best=null,bd=1e9;for(const f of EX.fans){if(f.cheer>0)continue;const d=Math.hypot(f.x-EX.p.x,f.y-EX.p.z);if(d<bd&&d>3){bd=d;best=f}}if(best)best.coming=true}}
+    if(EX.asking){fanItem.x=EX.asking.x;fanItem.z=EX.asking.y;fanItem.label=`Sign an autograph for the fan from ${TM[EX.asking.team].name}`}
+  });
+  EX.p={x:0,z:10,yaw:-Math.PI/2,bob:0};
+}
+
+/* ---------- 2. VIP entrance, the lift, and the suites corridor ---------- */
+function buildVIP(){
+  const u=TM[S.user],me=u.players[S.me],sc=EX.scene;
+  EX.place='New York New Jersey Stadium · VIP entrance';EX.goal='Show your pass at the desk, take the lift up to the suites, then follow the arrows to your suite.';
+  EX.skip=()=>{EX.leaving=true;startSuite()};EX.crowd=.12;EX.pass=false;
+  sc.background=new THREE.Color(0x0b0e16);sc.add(new THREE.HemisphereLight(0xfff2e0,0x2a2520,.5));
+  // entrance hall
+  B(20,.1,36,'#1c1f26',0,-.1,-12,{r:.6,m:.2});B(20,.2,36,'#14171d',0,4.2,-12);
+  B(.3,4.2,36,'#2b2f3a',-10,0,-12,{solid:true});B(.3,4.2,36,'#2b2f3a',10,0,-12,{solid:true});B(20,4.2,.3,'#2b2f3a',0,0,-30,{solid:true});EX.walls.push({x0:-10,x1:10,z0:5.8,z1:6.2});
+  for(const z of[-24,-12,0])pointLight(0,3.6,z,.7,18,0xffe8c8);
+  sign('VIP · SUITES',0,3.3,-29.8,5,.8,0,{bg:'#0b1310',fg:'#f0c23b'});
+  B(3,.02,30,'#8a1020',0,0,-12,{r:1});
+  // the regular queue behind ropes, and the fast lane you walk down
+  for(let z=2;z>=-16;z-=3){B(.12,1,.12,'#d4af37',-3,0,z,{m:.8,solid:true});B(.12,1,.12,'#d4af37',3,0,z,{m:.8,solid:true})}
+  B(.04,.06,18,'#8a1020',-3,.9,-7);B(.04,.06,18,'#8a1020',3,.9,-7);
+  const kits=Object.values(TM);for(let k=0;k<8;k++){const t=kits[(hash('q'+k)%kits.length)];person(t.kit,'','queue'+k,-6+(k%2)*1.3,1-k*2.1,-Math.PI/2,{})}
+  B(4,1.1,1.2,'#2a2f3a',0,0,-21,{solid:true});person(['#1f2533','#1f2533','#111111'],'','steward',0,-22.2,Math.PI/2,{trousers:'#1f2533'});
+  item(0,-19.5,'Show your VIP pass at the desk',()=>startActivity({title:'VIP check-in',cam:[0,1.65,-19.4],look:[0,1.4,-22.2],dur:2,hint:'Beep. Green light.',
+    done:()=>{EX.pass=true;exMsg(`Pass scanned: VIP · Suite 26 · ${me.name}. The lifts are straight ahead.`)}}),2.4,()=>!EX.pass);
+  B(2.6,2.8,.12,'#b8b2a6',0,0,-29.8,{m:.7,r:.3});
+  item(0,-28.4,'Take the lift up to the suites',()=>{if(!EX.pass){exMsg('The steward needs to scan your pass at the desk first.');return}
+    cutscene('Lift','Level 5 · Suites',1100,()=>{EX.p.x=100;EX.p.z=1;EX.p.yaw=-Math.PI/2;EX.place='New York New Jersey Stadium · Suites level';$('#exPlace').textContent=EX.place;
+      $('#exGoal').textContent='Follow the gold arrows to Suite 26.'})},2.2);
+  // suites corridor (reached by the lift)
+  B(9,.1,64,'#3a2a2a',100,-.1,-30,{r:1});B(9,.2,64,'#1a1d24',100,3.4,-30);
+  B(.3,3.4,64,'#d8cfbf',95.5,0,-30,{solid:true});B(.3,3.4,64,'#d8cfbf',104.5,0,-30,{solid:true});B(9,3.4,.3,'#d8cfbf',100,0,-62,{solid:true});EX.walls.push({x0:95,x1:105,z0:2,z1:2.4});
+  for(let z=-4;z>-62;z-=10)pointLight(100,3,z,.6,14,0xffe8c8);
+  for(let n=20,z=-6;z>-60;z-=8,n++)for(const sd of[-1,1]){const num=n*2+(sd>0?1:0)-20,x=100+sd*4.3,mine=num===26;
+    B(.1,2.4,1.4,mine?'#f0c23b':'#5a3b24',x,0,z,{e:mine?0x5a4410:0,ei:mine?1:0});
+    sign(`SUITE ${num}`,x-sd*.08,2.75,z,1.4,.3,sd>0?-Math.PI/2:Math.PI/2,{bg:mine?'#f0c23b':'#0b1310',fg:mine?'#0b1310':'#f0c23b'});
+    if(mine){EX.myDoor={x:x-sd*1.3,z};sign(me.name.toUpperCase(),x-sd*.08,2.45,z,1.4,.22,sd>0?-Math.PI/2:Math.PI/2,{bg:'#0b1310',fg:'#ffffff',size:.7})}}
+  const sh=new THREE.Shape();sh.moveTo(0,.7);sh.lineTo(.55,-.2);sh.lineTo(0,.1);sh.lineTo(-.55,-.2);sh.lineTo(0,.7);
+  const arrows=[];for(let z=-1;z>EX.myDoor.z+1;z-=3){const a=new THREE.Mesh(new THREE.ShapeGeometry(sh),new THREE.MeshBasicMaterial({color:0xf0c23b,side:THREE.DoubleSide}));a.rotation.x=-Math.PI/2;a.position.set(100,.03,z);sc.add(a);arrows.push(a)}
+  const turn=new THREE.Mesh(new THREE.ShapeGeometry(sh),new THREE.MeshBasicMaterial({color:0xf0c23b,side:THREE.DoubleSide}));turn.rotation.x=-Math.PI/2;turn.rotation.z=EX.myDoor.x>100?-Math.PI/2:Math.PI/2;turn.position.set(100,.03,EX.myDoor.z);sc.add(turn);arrows.push(turn);
+  EX.upd.push(()=>arrows.forEach((a,i)=>a.scale.setScalar(1+.15*Math.max(0,Math.sin(EX.t*5-i*.6)))));
+  item(EX.myDoor.x,EX.myDoor.z,'Open the door to Suite 26',()=>{EX.leaving=true;cutscene('Suite 26','The door swings open onto the noise of the stadium',1500,startSuite)},2);
+  EX.p={x:0,z:4,yaw:-Math.PI/2,bob:0};
+}
+
+/* ---------- 3. the suite and the live final ---------- */
+function startSuite(){
+  if(!enterPlay('explore'))return;
+  dropExploreScene();
+  const grp=new THREE.Group();R.scene.add(grp);
+  EX={kind:'suite',scene:grp,inMain:true,floorY:SUITE.y,walls:[],circles:[],items:[],upd:[],people:[],p:{x:6,z:41,yaw:-Math.PI/2,bob:0},act:false,t:0,paused:false,crowd:.2,activity:null,camPos:new THREE.Vector3(),camLook:new THREE.Vector3()};
+  startWatchedFinal();buildSuite();
+  $('#exPlace').textContent=EX.place;$('#exGoal').textContent=EX.goal;$('#exMsg').hidden=true;$('#actHud').hidden=true;
+  crowd(EX.crowd,1);
+}
+function startWatchedFinal(){
+  const fin=S.rounds[S.rounds.length-1].ties[0],kits=teamKits(fin.a,fin.b);
+  clearPlayers();clearExtras();
+  M=newMatchState([fin.a,fin.b],kits,true,'World Cup Final');M.watch=true;
+  buildSquads(kits,1);
+  M.gks=[M.players.find(p=>p.team===0&&p.i===0),M.players.find(p=>p.team===1&&p.i===0)];
+  M.buff={};M.speed=1;M.subbed=true;M.subPending=0;M.walkOff=null;M.benchView=false;
+  M.me={x:0,y:HW+40,vx:0,vy:0,fx:0,fy:-1,call:0,stamina:1,r:80,dummy:true};   // you're in the stands, not on the pitch
+  buildBenches(kits);
+  setStadiumFor(fin.a,fin.b,'WORLD CUP FINAL');
+  kickoff(0);whistle(1);
+}
+const scoreLine=()=>`${M.ids[0]} ${M.score[0]}–${M.score[1]} ${M.ids[1]} · ${M.phase==='ht'?'Half time':M.phase==='end'?'Full time':Math.max(1,Math.ceil(M.clock))+"'"}`;
+function matchTalk(){const[a,b]=M.score;if(a===b)return a?'"Level again! Somebody is going to be a hero tonight."':'"Still goalless. One moment will decide this."';
+  const lead=TM[M.ids[a>b?0:1]].name;return`"${lead} are in front, but a final is never over until the whistle."`}
+function buildSuite(){
+  const fin=S.rounds[S.rounds.length-1].ties[0],F=SUITE.y,{x0,x1,z0,z1}=SUITE,zc=(z0+z1)/2,sc=EX.scene;
+  EX.place='New York New Jersey Stadium · Suite 26';
+  EX.goal=`World Cup Final: ${TM[fin.a].name} vs ${TM[fin.b].name}. Sit by the glass, eat, and meet the other guests.`;
+  EX.skip=()=>{if(EX.show)endShow();else escortDown()};
+  // the room
+  B(x1-x0,.25,z1-z0,'#3a2f28',0,F-.25,zc,{r:.9});B(x1-x0,.2,z1-z0,'#1a1d24',0,F+3.2,zc);
+  B(x1-x0,3.2,.2,'#2b2f3a',0,F,z1,{solid:true});B(.2,3.2,z1-z0,'#2b2f3a',x0,F,zc,{solid:true});B(.2,3.2,z1-z0,'#2b2f3a',x1,F,zc,{solid:true});
+  B(x1-x0,.55,.25,'#1b2232',0,F,z0+.1,{solid:true});B(x1-x0,2.65,.06,'#9fc3e8',0,F+.55,z0,{op:.12,r:.05});
+  B(x1-x0,.25,8,'#20242c',0,F-.5,z0+4);   // underside seen from the pitch
+  pointLight(-3,F+2.8,zc,.7,14,0xffe8c8);pointLight(4,F+2.8,zc,.7,14,0xffe8c8);
+  for(let x=-7;x<=7;x+=2.3)B(.7,.5,.7,'#5a1f2a',x,F,z0+1.1,{solid:true});
+  item(0,z0+2.1,'Sit by the glass and watch the match',()=>startActivity({title:'Watching the final',cam:[EX.p.x,F+1.9,z0+.75],look:[0,0,0],
+    update:A=>{A.look=[M.ball.x,.6,M.ball.y]},hint:()=>`${scoreLine()} · Press S to get up`}),3);
+  // TV with the live score
+  const tvC=document.createElement('canvas');tvC.width=512;tvC.height=256;const tvT=new THREE.CanvasTexture(tvC);tvT.encoding=THREE.sRGBEncoding;
+  const tv=new THREE.Mesh(new THREE.PlaneGeometry(2.6,1.3),new THREE.MeshBasicMaterial({map:tvT}));tv.position.set(x0+.12,F+1.9,zc);tv.rotation.y=Math.PI/2;sc.add(tv);
+  const drawTV=()=>{const g=tvC.getContext('2d');g.fillStyle='#06101e';g.fillRect(0,0,512,256);g.fillStyle='#f0c23b';g.font='800 30px "Big Shoulders Display",Impact,sans-serif';g.textAlign='center';g.fillText('WORLD CUP FINAL · LIVE',256,44);
+    g.fillStyle='#ffffff';g.font='900 86px "Big Shoulders Display",Impact,sans-serif';g.fillText(`${M.ids[0]} ${M.score[0]}–${M.score[1]} ${M.ids[1]}`,256,140);
+    g.font='700 34px "Barlow Semi Condensed",sans-serif';g.fillStyle='#9fd3ff';const e=M.events[M.events.length-1];g.fillText(M.phase==='ht'?'Half time':M.phase==='end'?'Full time':`${Math.max(1,Math.ceil(M.clock))}'${e?`   ·   ${e.name} ${e.min}'`:''}`,256,200);tvT.needsUpdate=true};
+  // buffet
+  B(6,.9,.9,'#5a3b24',2,F,z1-.6,{solid:true});
+  for(let k=0;k<6;k++)B(.5,.12,.4,['#c0605a','#f3e3b0','#5aa03a','#e8c020','#7a3a8a','#d89a4a'][k],-.4+k*.95,F+.9,z1-.6);
+  sign('BUFFET',2,F+2.4,z1-.12,2.4,.45,Math.PI,{bg:'#0b1310',fg:'#f0c23b'});
+  item(2,z1-1.6,'Fill a plate at the buffet',()=>eatPieces('Suite buffet',[2,F+1.5,z1-1.7],[2,F+.92,z1-.6],foodStack(2,F+.93,z1-.6,FOODS.buffet),'Lobster rolls, sliders and a tiny dessert. Very fancy.'),2.2);
+  // guests: real celebrities, plus a current star whose team is already out
+  const out=Object.values(TM).filter(t=>t.id!==fin.a&&t.id!==fin.b&&t.id!==S.user).sort((a,b)=>b.r-a.r)[0],star=out.players[out.star];
+  const guests=[...CELEBS,{n:star.name,k:`${out.name} star`,look:['#1f2533','#1f2533','#111111'],line:'We wanted to be down there tonight. Next time, it\'s us.',legend:true}];
+  const spots=[[-7,36.6],[-4.6,40.6],[-2,37.2],[1.2,41.2],[3.6,36.9],[3.4,39.6],[-7.2,40.9],[7.6,37.3],[-.4,39.6]];
+  EX.guests=guests.map((c,i)=>{const[x,z]=spots[i],face=Math.atan2(41-z,6-x);
+    const p=person(c.look,'','celeb-'+c.n,x,z,face,{y:F,trousers:c.look[1]});p.tag=nameTag(c.n,c.k,x,F+2.15,z);p.c=c;
+    p.it=item(x,z,`Talk to ${c.n}`,()=>talkCeleb(p),1.8,()=>p.mesh.root.visible);return p});
+  EX.tvTimer=0;drawTV();
+  EX.upd.push(dt=>{watchUpdate(dt);EX.tvTimer-=dt;if(EX.tvTimer<=0){EX.tvTimer=.4;drawTV();if(!EX.activity)$('#exGoal').textContent=`World Cup Final · ${scoreLine()}`}});
+  setTimeout(()=>exMsg(`Welcome to Suite 26. ${guests.slice(0,3).map(g=>g.n).join(', ')} and more are already here.`),600);
+}
+function talkCeleb(p){
+  const c=p.c;startActivity({title:c.n,cam:[EX.p.x,SUITE.y+1.65,EX.p.z],look:[p.x,SUITE.y+1.5,p.y],cancel:false});
+  const opts=[{label:'Ask for a selfie',reply:`"Of course!" ${c.n} leans in. Click. That one's going straight to the family group chat.`,fn:flash},
+    {label:'Talk about the match',reply:matchTalk()}];
+  if(c.legend)opts.push({label:'Ask them to sign your VIP pass',reply:`${c.n} signs your pass and hands it back with a grin.`});
+  opts.push({label:'Say goodbye'});
+  const line=c.perf&&M.half===2?'What a crowd out there! Did you catch our show?':c.line;
+  choice(`${c.n} · ${c.k}`,`"${line}"`,opts);
+}
+function watchUpdate(dt){
+  if(!M||!M.watch)return;
+  if(M.phase!=='end'&&M.phase!=='ht'){EX.acc=(EX.acc||0)+dt;let n=0;while(EX.acc>=1/60&&n<6){step(1/60);EX.acc-=1/60;n++}}
+  for(const p of M.players)animPlayer(p,dt);for(const f of M.bench)animPlayer(f,dt,{sit:f.sit});syncBall(dt);
+  if(EX.show)showUpdate(dt);
+  if(!EX.escort&&!EX.leaving&&M.half===2&&M.clock>=80&&M.phase!=='end')startEscort();
+  if(EX.escort&&!EX.leaving){const s=EX.escort.p,dx=EX.p.x-s.x,dz=EX.p.z-s.y,d=Math.hypot(dx,dz);
+    if(d>1.6){s.vx=dx/d*1.6;s.vy=dz/d*1.6;s.x+=s.vx*dt;s.y+=s.vy*dt;s.fx=dx/d;s.fy=dz/d}else{s.vx=s.vy=0;EX.escort.here=true}}
+  if(EX.escort){EX.escort.it.x=EX.escort.p.x;EX.escort.it.z=EX.escort.p.y}
+}
+function startEscort(){
+  const s=person(['#123a6b','#1f2533','#111111'],'','official',7.4,41.6,Math.PI,{y:SUITE.y,trousers:'#1f2533'});
+  EX.escort={p:s,here:false,it:item(7.4,41.6,'Follow the official down to the pitch',escortDown,2.2)};
+  exMsg('A tournament official comes in: "The trophy ceremony is close. You\'ll watch it from the pitch tonight. Follow me when you\'re ready."');
+}
+function escortDown(){
+  if(EX.leaving)return;EX.leaving=true;
+  cutscene('Pitch level','The official walks you down the tunnel and out onto the grass',2400,()=>{
+    let n=0;while(M.phase!=='end'&&n<400000){if(M.phase==='ht'){if(EX.show)endShow(true);else{M.half=2;kickoff(1)}}step(1/60);n++}
+    if(!S.champion)finalizeWatchedFinal();goCelebration()});
+}
+function finalizeWatchedFinal(){
+  if(S.champion)return;const t=S.rounds[S.rounds.length-1].ties[0],[a,b]=M.score;
+  t.sa=a;t.sb=b;
+  if(a!==b)t.w=a>b?t.a:t.b;
+  else{const aw=Math.random()<.5+(TM[t.a].r-TM[t.b].r)/80,p1=3+((Math.random()*3)|0),p2=p1-1-((Math.random()*2)|0);t.pens=aw?[p1,p2]:[p2,p1];t.w=aw?t.a:t.b}
+  creditMatch(t.a,t.b,a,b,{events:M.events.slice(),saves:[M.gks[0].saves,M.gks[1].saves],st:summStats()});
+  S.champion=t.w;S.watchedFinal=true;save();
+}
+function watchFullTime(){
+  finalizeWatchedFinal();
+  const t=S.rounds[S.rounds.length-1].ties[0];
+  exMsg(`Full time${t.pens?` (${t.pens[0]}–${t.pens[1]} on penalties)`:''}: ${TM[t.w].name} are world champions!`);roar();
+  if(!EX.leaving){EX.leaving=true;setTimeout(()=>cutscene('Pitch level','An official takes you down to the pitch for the trophy ceremony',2400,goCelebration),2600)}
+}
+function goCelebration(){dropExploreScene();EX.inMain=false;startCelebration(S.champion,{spectator:true})}
+
+/* ---------- 4. the halftime show ---------- */
+function watchHalfTime(){
+  const sc=EX.scene,show={t:0,beat:0,parts:[],beams:[],dancers:[]};EX.show=show;
+  const add=m=>{sc.add(m);show.parts.push(m);return m};
+  add(new THREE.Mesh(new THREE.BoxGeometry(16,1.2,9),exMat('#14161c'))).position.set(0,.6,0);
+  const led=add(new THREE.Mesh(new THREE.BoxGeometry(16,6,.4),exMat('#000000',{e:0xffffff,ei:1})));led.position.set(0,4.2,-4.3);show.led=led;
+  for(let k=0;k<6;k++){const beam=add(new THREE.Mesh(new THREE.ConeGeometry(2.2,28,20,1,true),new THREE.MeshBasicMaterial({color:[0xff4fd8,0x4fd8ff,0xffd24f][k%3],transparent:true,opacity:.18,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide})));
+    beam.position.set(-7+k*2.8,14,-3);show.beams.push(beam)}
+  const performers=EX.guests.filter(g=>g.c.perf);
+  performers.forEach(g=>{g.mesh.root.visible=false;g.tag.visible=false});
+  M.players.forEach(p=>p.mesh.root.visible=false);R.ball.visible=false;
+  performers.forEach((g,i)=>{const p={x:-1.6+i*3.2,y:0,vx:0,vy:0,fx:0,fy:1,kickT:0,slide:0,dive:null,o:{y:1.2,wave:2}};p.mesh=makePlayerMesh(g.c.look,'','stage-'+g.c.n,false,{scene:sc,scale:1.6,trousers:g.c.look[1]});show.parts.push(p.mesh.root);show.dancers.push(p);
+    const tag=nameTag(g.c.n,'Halftime show',p.x,5,0);show.parts.push(tag)});
+  for(let k=0;k<6;k++){const p={x:-6+k*2.4,y:2.5,vx:0,vy:0,fx:0,fy:1,kickT:0,slide:0,dive:null,o:{y:1.2,wave:k%2?1:2}};p.mesh=makePlayerMesh(['#ffffff','#111111','#111111'],'','dancer'+k,false,{scene:sc,scale:1.25});show.parts.push(p.mesh.root);show.dancers.push(p)}
+  EX.skip=endShow;crowd(.55,.4);
+  exMsg(`Halftime show! ${performers.map(g=>g.c.n).join(' and ')} take the stage. Press Skip to go straight to the second half.`);
+}
+function showUpdate(dt){
+  const s=EX.show;s.t+=dt;s.beat-=dt;
+  s.dancers.forEach((d,i)=>{d.vx=Math.sin(s.t*4+i)*2;animPlayer(d,dt,d.o);d.mesh.root.position.y=1.2+Math.abs(Math.sin(s.t*5+i))*.25});
+  s.beams.forEach((b,i)=>{b.rotation.z=Math.sin(s.t*1.4+i)*.5;b.rotation.x=Math.cos(s.t*1.1+i)*.3});
+  s.led.material.emissive.setHSL((s.t*.15)%1,.8,.5);
+  if(s.beat<=0){s.beat=.46;tone(70,.16,.22,'sine',40);if(Math.random()<.6)tone(880+Math.random()*440,.06,.03,'square')}
+  if(s.t>40)endShow();
+}
+function endShow(silent){
+  const s=EX.show;if(!s)return;EX.show=null;
+  s.parts.forEach(m=>{EX.scene.remove(m);disposeTree(m)});
+  EX.guests.filter(g=>g.c.perf).forEach(g=>{g.mesh.root.visible=true;g.tag.visible=true});
+  M.players.forEach(p=>p.mesh.root.visible=true);R.ball.visible=true;
+  EX.skip=escortDown;crowd(.2,1);
+  M.half=2;kickoff(1);if(!silent){whistle(1);exMsg('The performers are back in the suite, buzzing. Second half under way.')}
 }
 
 /* =====================================================================

@@ -310,6 +310,15 @@ tr:last-child td{border-bottom:0}
 .hub-acct{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .start-note{flex-basis:100%;display:flex;align-items:center;gap:10px;flex-wrap:wrap;color:var(--chalk);font-size:15px}
 .start-note .btn{font-size:15px;padding:7px 14px}
+/* ---------- autograph paper ---------- */
+.paper{position:relative;width:min(560px,100%);background:#fbf8ef;border-radius:4px;padding:10px;box-shadow:0 12px 32px rgba(0,0,0,.55);transform:rotate(-1deg)}
+.paper canvas{display:block;width:100%;height:auto;aspect-ratio:720/280;touch-action:none;cursor:crosshair;border-radius:2px;background:repeating-linear-gradient(transparent 0 38px,#e6dfcd 38px 40px)}
+.paper-hint{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;color:#9a927f;font-weight:600;pointer-events:none}
+.paper.small{width:min(320px,100%);transform:rotate(-2deg)}
+.sig-img{display:block;width:100%;height:auto}
+.sig-img.signing{animation:sigIn 1.1s ease-out both}
+@keyframes sigIn{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+@media (prefers-reduced-motion:reduce){.sig-img.signing{animation:none}}
 .page-toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:30;background:var(--gold);color:var(--night);font-weight:600;padding:10px 16px;border-radius:5px;box-shadow:0 8px 24px rgba(0,0,0,.4);max-width:min(560px,calc(100% - 32px));text-align:center}
 </style>
 </head>
