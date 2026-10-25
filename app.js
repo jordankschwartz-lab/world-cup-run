@@ -1366,8 +1366,8 @@ function nextKick(){
   const g=PS.keeper;g.x=HL-.5;g.y=0;g.fx=-1;g.fy=0;g.dive=null;g.vx=g.vy=0;
   Object.assign(M.ball,{x:HL-SPOT,y:0,z:0,vx:0,vy:0,vz:0,owner:null});
   PS.aim={y:0,z:1};PS.kp={from:{y:0,z:.9},to:{y:0,z:.9},start:null};PS.t=0;PS.result=null;
-  PS.phase=st===0?'aim':'runup';
-  R.reticle.visible=st===0;
+  PS.phase=st===0&&!PS.auto?'aim':'runup';
+  R.reticle.visible=st===0&&!PS.auto;
   renderPensHud(`${kick.short} steps up`,st===0?(touchMode?'Aim with the stick, tap Shoot to strike.':'Aim with WASD or the arrows, press Space to strike.'):(touchMode?'You are in goal. Hold a direction and tap Shoot to dive.':'You are in goal. Hold a direction and press Space to dive. Up dives high.'));
 }
 function renderPensHud(msg,sub){
@@ -1389,10 +1389,10 @@ function pensFrame(dt){
   }else if(P.phase==='runup'){
     const k=Math.min(1,P.t/.8),sx=HL-SPOT-2.2,ex=HL-SPOT-.55;
     kick.x=sx+(ex-sx)*k;kick.y=-1.2+.9*k;kick.vx=5.5;kick.fx=.95;kick.fy=.3;
-    if(P.turn===1)userDive(ix,iy);
+    if(P.turn===1&&!P.auto)userDive(ix,iy);
     if(k>=1)strike();
   }else if(P.phase==='flight'){
-    if(P.turn===1)userDive(ix,iy);
+    if(P.turn===1&&!P.auto)userDive(ix,iy);
     const k=Math.min(1,P.t/P.T);
     b.x=HL-SPOT+(P.target.x-(HL-SPOT))*k;b.y=P.target.y*k;b.z=P.target.z*k+Math.sin(Math.PI*k)*.35;
     if(k>=1)resolvePen();
@@ -1407,6 +1407,7 @@ function pensFrame(dt){
   g.dive=prog>0&&Math.abs(kp.to.y)>.5?{t:1,side:Math.sign(kp.to.y)}:null;
   for(const p of M.players)animPlayer(p,dt,p===g?{y:lift,arms:prog>0&&kp.to.z>1.5?-2.9:undefined}:{});
   R.ball.position.set(b.x,b.z+.3,b.y);if(P.phase==='flight'||P.phase==='result')R.ball.rotation.x+=dt*14;
+  if(P.auto)return;
   const port=R.camera.aspect<1;
   R.camera.position.set(HL-SPOT-(port?11:8),port?3.2:2.6,0);R.camera.lookAt(HL,1.15,0);
   M.press.shoot=M.press.pass=false;
@@ -1417,7 +1418,7 @@ function userDive(ix,iy){const P=PS;if(P.kp.start!=null||!M.press.shoot)return;
 function strike(){
   const P=PS;P.kicker.kickT=.28;thump(1);
   let tgt;
-  if(P.turn===0){const a=P.aim,edge=Math.max(Math.abs(a.y)/GWH,a.z/GH),err=.15+Math.pow(Math.min(1.3,edge),3)*.45;
+  if(P.turn===0&&!P.auto){const a=P.aim,edge=Math.max(Math.abs(a.y)/GWH,a.z/GH),err=.15+Math.pow(Math.min(1.3,edge),3)*.45;
     tgt={x:HL+.2,y:a.y+rnd(-1,1)*err,z:Math.max(.12,a.z+rnd(-1,1)*err*.7)};
     const right=Math.random()<.3+(P.keeper.r-75)/170;
     if(right)P.kp.to={y:clamp(tgt.y+rnd(-.5,.5),-3.3,3.3),z:clamp(tgt.z+rnd(-.3,.3),.3,2)};
@@ -1428,6 +1429,7 @@ function strike(){
     const miss=Math.random()<.07,side=Math.random()<.5?-1:1,center=Math.random()<.18;
     tgt={x:HL+.2,y:center?rnd(-.6,.6):side*rnd(1.5,3.4),z:rnd(.2,2.1)};
     if(miss){if(Math.random()<.5)tgt.z=rnd(2.6,3.2);else tgt.y=side*rnd(3.8,4.5)}
+    if(P.auto){const right=Math.random()<.3+(P.keeper.r-75)/170;P.kp.to=right?{y:clamp(tgt.y+rnd(-.5,.5),-3.3,3.3),z:clamp(tgt.z+rnd(-.3,.3),.3,2)}:Math.random()<.2?{y:0,z:.9}:{y:(tgt.y>0?-1:1)*rnd(1.8,3),z:rnd(.4,1.6)};P.kp.start=R.time+.06}
   }
   P.target=tgt;P.T=.55;P.phase='flight';P.t=0;
 }
@@ -1442,6 +1444,7 @@ function resolvePen(){
   P.result=goal?'goal':saved?'saved':'miss';
   P.k[P.turn].push(goal);
   if(goal){b.vx=8;b.vy=t.y*.2;b.vz=0}else if(saved){b.vx=-7;b.vy=rnd(-4,4);b.vz=3}else{b.vx=10;b.vy=t.y*.5;b.vz=1}
+  if(P.auto){const who=P.kicker.short;exMsg(goal?`${who} scores!`:saved?`Saved! ${who} is denied.`:`${who} misses!`);if(goal)roar();P.phase='result';P.t=0;return}
   const mine=P.turn===0;
   const msg=goal?(mine?'Scored!':'They score'):saved?(mine?'Saved':'You saved it!'):(mine?'Missed':'They miss!');
   if((mine&&goal)||(!mine&&!goal))roar();else{crowd(.28,.2);setTimeout(()=>crowd(AU.base,1.5),1200)}
@@ -1453,6 +1456,7 @@ function penWinner(){const a=PS.k[0],b=PS.k[1],sa=a.filter(Boolean).length,sb=b.
   if(ta===tb&&sa!==sb)return sa>sb?0:1;return null}
 function advancePen(){
   const w=penWinner();
+  if(PS.auto){if(w!=null){PS.phase='done';watchPensDone(PS.k[0].filter(Boolean).length,PS.k[1].filter(Boolean).length)}else{PS.turn=1-PS.turn;nextKick()}return}
   if(w!=null){PS.phase='done';const sa=PS.k[0].filter(Boolean).length,sb=PS.k[1].filter(Boolean).length,[a,b]=M.score;
     finishUserMatch(a,b,[sa,sb],M.meta);
     renderPensHud(w===0?`${TM[M.ids[0]].name} win ${sa}–${sb}`:`${TM[M.ids[1]].name} win ${sb}–${sa}`,'');
@@ -1505,7 +1509,7 @@ function startCelebration(teamId,opts={}){
   const cel=$('#celeb'),bt=bootTable()[0];
   if(CB.spectator){
     cel.innerHTML=`<div><p class="eyebrow">You're on the pitch · New York New Jersey Stadium · 19 July 2026</p><h2>${esc(team.name)}</h2><p class="eyebrow">World Champions</p></div>
-      <div class="btm"><p>${esc(team.players[cap].name)} lifts the trophy right in front of you${bt?` · Golden Boot: ${esc(pl(bt[0]).name)} (${bt[1].g})`:''}</p><div class="ov-actions"><button type="button" class="btn primary" id="celebHome">Fly home</button><button type="button" class="btn" id="celebSelect">Back to team select</button><button type="button" class="btn" id="celebGo">See the final standings</button></div></div>`;
+      <div class="btm"><p>${opts.presented?`You handed the trophy to ${esc(team.players[cap].name)}, and now they lift it high`:`${esc(team.players[cap].name)} lifts the trophy right in front of you`}${bt?` · Golden Boot: ${esc(pl(bt[0]).name)} (${bt[1].g})`:''}</p><div class="ov-actions"><button type="button" class="btn primary" id="celebHome">Fly home</button><button type="button" class="btn" id="celebSelect">Back to team select</button><button type="button" class="btn" id="celebGo">See the final standings</button></div></div>`;
     const endC=()=>{leavePlay();clearBursts();clearExtras();clearPlayers();CB=null;R.ball.visible=true;$('#celeb').hidden=true};
     $('#celebHome').onclick=()=>{endC();startExplore('airport')};
     $('#celebSelect').onclick=()=>{endC();leaveRun()};
@@ -1629,7 +1633,7 @@ function startExplore(kind){
   $('#exPlace').textContent=EX.place;$('#exGoal').textContent=EX.goal;$('#exMsg').hidden=true;$('#actHud').hidden=true;
   crowd(EX.crowd,1);
 }
-function dropExploreScene(){if(EX&&EX.scene){if(EX.inMain)R.scene.remove(EX.scene);disposeTree(EX.scene);EX.scene=null}}
+function dropExploreScene(){if(EX&&EX.stairs)setStands(true);if(EX&&EX.scene){if(EX.inMain)R.scene.remove(EX.scene);disposeTree(EX.scene);EX.scene=null}}
 function exploreFrame(dt){
   EX.t+=dt;
   if(EX.drive){driveFrame(dt);EX.act=false;return}
@@ -1646,6 +1650,7 @@ function exploreFrame(dt){
     if(EX.swim){const q=EX.swim;nx=clamp(nx,q.x0,q.x1);nz=clamp(nz,q.z0,q.z1)}
     else for(const w of EX.walls){const cx=clamp(nx,w.x0,w.x1),cz=clamp(nz,w.z0,w.z1),dx=nx-cx,dz=nz-cz,d=Math.hypot(dx,dz);
       if(d<.35){if(d>1e-4){nx=cx+dx/d*.35;nz=cz+dz/d*.35}else{nx=P.x;nz=P.z}}}
+    if(EX.valid&&!EX.valid(nx,nz)){if(EX.valid(nx,P.z))nz=P.z;else if(EX.valid(P.x,nz))nx=P.x;else{nx=P.x;nz=P.z}}
     P.x=nx;P.z=nz;P.bob+=dt*Math.abs(fw)*(EX.swim?3:9);
   }
   const pr=$('#exPrompt');
@@ -1656,7 +1661,7 @@ function exploreFrame(dt){
     if(EX.act&&best&&!EX.paused)best.act();
   }
   EX.act=false;
-  const eye=EX.swim?.62+Math.sin(EX.t*2.2)*.05:(EX.floorY||0)+1.65+Math.sin(P.bob)*.03;
+  const eye=EX.swim?.62+Math.sin(EX.t*2.2)*.05:(EX.floorAt?EX.floorAt(P.x,P.z):EX.floorY||0)+1.65+Math.sin(P.bob)*.03;
   R.camera.position.set(P.x,eye,P.z);EX.camLook.set(P.x+Math.cos(P.yaw)*5,eye-(EX.swim?0:.3),P.z+Math.sin(P.yaw)*5);R.camera.lookAt(EX.camLook);EX.camPos.copy(R.camera.position);
 }
 
@@ -2226,14 +2231,14 @@ function startWatchedFinal(){
   setStadiumFor(fin.a,fin.b,'WORLD CUP FINAL');
   kickoff(0);whistle(1);
 }
-const scoreLine=()=>`${M.ids[0]} ${M.score[0]}–${M.score[1]} ${M.ids[1]} · ${M.phase==='ht'?'Half time':M.phase==='end'?'Full time':Math.max(1,Math.ceil(M.clock))+"'"}`;
+const scoreLine=()=>`${M.ids[0]} ${M.score[0]}–${M.score[1]} ${M.ids[1]} · ${M.phase==='ht'?'Half time':M.phase==='end'?'Full time':Math.max(1,Math.ceil(M.clock))+"'"}${penLine()}`;
 function matchTalk(){const[a,b]=M.score;if(a===b)return a?'"Level again! Somebody is going to be a hero tonight."':'"Still goalless. One moment will decide this."';
   const lead=TM[M.ids[a>b?0:1]].name;return`"${lead} are in front, but a final is never over until the whistle."`}
 function buildSuite(){
   const fin=S.rounds[S.rounds.length-1].ties[0],F=SUITE.y,{x0,x1,z0,z1}=SUITE,zc=(z0+z1)/2,sc=EX.scene;
   EX.place='New York New Jersey Stadium · Suite 26';
   EX.goal=`World Cup Final: ${TM[fin.a].name} vs ${TM[fin.b].name}. Sit by the glass, eat, and meet the other guests.`;
-  EX.skip=()=>{if(EX.show)endShow();else escortDown()};
+  EX.skipMain=suiteSkip;EX.skip=suiteSkip;
   // the room
   B(x1-x0,.25,z1-z0,'#3a2f28',0,F-.25,zc,{r:.9});B(x1-x0,.2,z1-z0,'#1a1d24',0,F+3.2,zc);
   B(x1-x0,3.2,.2,'#2b2f3a',0,F,z1,{solid:true});B(.2,3.2,z1-z0,'#2b2f3a',x0,F,zc,{solid:true});B(.2,3.2,z1-z0,'#2b2f3a',x1,F,zc,{solid:true});
@@ -2248,7 +2253,7 @@ function buildSuite(){
   const tv=new THREE.Mesh(new THREE.PlaneGeometry(2.6,1.3),new THREE.MeshBasicMaterial({map:tvT}));tv.position.set(x0+.12,F+1.9,zc);tv.rotation.y=Math.PI/2;sc.add(tv);
   const drawTV=()=>{const g=tvC.getContext('2d');g.fillStyle='#06101e';g.fillRect(0,0,512,256);g.fillStyle='#f0c23b';g.font='800 30px "Big Shoulders Display",Impact,sans-serif';g.textAlign='center';g.fillText('WORLD CUP FINAL · LIVE',256,44);
     g.fillStyle='#ffffff';g.font='900 86px "Big Shoulders Display",Impact,sans-serif';g.fillText(`${M.ids[0]} ${M.score[0]}–${M.score[1]} ${M.ids[1]}`,256,140);
-    g.font='700 34px "Barlow Semi Condensed",sans-serif';g.fillStyle='#9fd3ff';const e=M.events[M.events.length-1];g.fillText(M.phase==='ht'?'Half time':M.phase==='end'?'Full time':`${Math.max(1,Math.ceil(M.clock))}'${e?`   ·   ${e.name} ${e.min}'`:''}`,256,200);tvT.needsUpdate=true};
+    g.font='700 34px "Barlow Semi Condensed",sans-serif';g.fillStyle='#9fd3ff';const e=M.events[M.events.length-1];g.fillText(M.phase==='ht'?'Half time':M.phase==='end'?'Full time'+penLine():`${Math.max(1,Math.ceil(M.clock))}'${e?`   ·   ${e.name} ${e.min}'`:''}`,256,200);tvT.needsUpdate=true};
   // buffet
   B(6,.9,.9,'#5a3b24',2,F,z1-.6,{solid:true});
   for(let k=0;k<6;k++)B(.5,.12,.4,['#c0605a','#f3e3b0','#5aa03a','#e8c020','#7a3a8a','#d89a4a'][k],-.4+k*.95,F+.9,z1-.6);
@@ -2261,6 +2266,7 @@ function buildSuite(){
   EX.guests=guests.map((c,i)=>{const[x,z]=spots[i],face=Math.atan2(41-z,6-x);
     const p=person(c.look,'','celeb-'+c.n,x,z,face,{y:F,trousers:c.look[1]});p.tag=nameTag(c.n,c.k,x,F+2.15,z);p.c=c;
     p.it=item(x,z,`Talk to ${c.n}`,()=>talkCeleb(p),1.8,()=>p.mesh.root.visible);return p});
+  buildStairs();
   EX.tvTimer=0;drawTV();
   EX.upd.push(dt=>{watchUpdate(dt);EX.tvTimer-=dt;if(EX.tvTimer<=0){EX.tvTimer=.4;drawTV();if(!EX.activity)$('#exGoal').textContent=`World Cup Final · ${scoreLine()}`}});
   setTimeout(()=>exMsg(`Welcome to Suite 26. ${guests.slice(0,3).map(g=>g.n).join(', ')} and more are already here.`),600);
@@ -2276,40 +2282,202 @@ function talkCeleb(p){
 }
 function watchUpdate(dt){
   if(!M||!M.watch)return;
+  if(EX.pens&&PS&&PS.auto){pensFrame(dt);for(const f of M.bench)animPlayer(f,dt,{sit:f.sit});return}
   if(M.phase!=='end'&&M.phase!=='ht'){EX.acc=(EX.acc||0)+dt;let n=0;while(EX.acc>=1/60&&n<6){step(1/60);EX.acc-=1/60;n++}}
-  for(const p of M.players)animPlayer(p,dt);for(const f of M.bench)animPlayer(f,dt,{sit:f.sit});syncBall(dt);
+  for(const p of M.players)animPlayer(p,dt,p.onStage?{y:.35}:{});for(const f of M.bench)animPlayer(f,dt,{sit:f.sit});
+  if(!EX.route)syncBall(dt);
   if(EX.show)showUpdate(dt);
-  if(!EX.escort&&!EX.leaving&&M.half===2&&M.clock>=80&&M.phase!=='end')startEscort();
-  if(EX.escort&&!EX.leaving){const s=EX.escort.p,dx=EX.p.x-s.x,dz=EX.p.z-s.y,d=Math.hypot(dx,dz);
-    if(d>1.6){s.vx=dx/d*1.6;s.vy=dz/d*1.6;s.x+=s.vx*dt;s.y+=s.vy*dt;s.fx=dx/d;s.fy=dz/d}else{s.vx=s.vy=0;EX.escort.here=true}}
-  if(EX.escort){EX.escort.it.x=EX.escort.p.x;EX.escort.it.z=EX.escort.p.y}
 }
-function startEscort(){
-  const s=person(['#123a6b','#1f2533','#111111'],'','official',7.4,41.6,Math.PI,{y:SUITE.y,trousers:'#1f2533'});
-  EX.escort={p:s,here:false,it:item(7.4,41.6,'Follow the official down to the pitch',escortDown,2.2)};
-  exMsg('A tournament official comes in: "The trophy ceremony is close. You\'ll watch it from the pitch tonight. Follow me when you\'re ready."');
-}
-function escortDown(){
-  if(EX.leaving)return;EX.leaving=true;
-  cutscene('Pitch level','The official walks you down the tunnel and out onto the grass',2400,()=>{
-    let n=0;while(M.phase!=='end'&&n<400000){if(M.phase==='ht'){if(EX.show)endShow(true);else{M.half=2;kickoff(1)}}step(1/60);n++}
-    if(!S.champion)finalizeWatchedFinal();goCelebration()});
-}
-function finalizeWatchedFinal(){
+function finalizeWatchedFinal(pens){
   if(S.champion)return;const t=S.rounds[S.rounds.length-1].ties[0],[a,b]=M.score;
   t.sa=a;t.sb=b;
   if(a!==b)t.w=a>b?t.a:t.b;
+  else if(pens){t.pens=pens;t.w=pens[0]>pens[1]?t.a:t.b}
   else{const aw=Math.random()<.5+(TM[t.a].r-TM[t.b].r)/80,p1=3+((Math.random()*3)|0),p2=p1-1-((Math.random()*2)|0);t.pens=aw?[p1,p2]:[p2,p1];t.w=aw?t.a:t.b}
   creditMatch(t.a,t.b,a,b,{events:M.events.slice(),saves:[M.gks[0].saves,M.gks[1].saves],st:summStats()});
   S.champion=t.w;S.watchedFinal=true;save();
 }
-function watchFullTime(){
-  finalizeWatchedFinal();
-  const t=S.rounds[S.rounds.length-1].ties[0];
-  exMsg(`Full time${t.pens?` (${t.pens[0]}–${t.pens[1]} on penalties)`:''}: ${TM[t.w].name} are world champions!`);roar();
-  if(!EX.leaving){EX.leaving=true;setTimeout(()=>cutscene('Pitch level','An official takes you down to the pitch for the trophy ceremony',2400,goCelebration),2600)}
+function goCelebration(presented){setStands(true);dropExploreScene();EX.inMain=false;startCelebration(S.champion,{spectator:true,presented:!!presented})}
+
+/* ---------- 5. full time, penalties, and down to the pitch to present the trophy ---------- */
+const PRESIDENT={n:'Gianni Infantino',k:'FIFA President'};
+const penLine=()=>M&&M.pens?` (${M.pens[0]}–${M.pens[1]} pens)`:EX&&EX.pens&&PS&&PS.auto?` · pens ${PS.k[0].filter(Boolean).length}–${PS.k[1].filter(Boolean).length}`:'';
+function suiteSkip(){
+  if(EX.leaving)return;
+  if(EX.show){endShow();return}
+  if(EX.route){finishPresentation();return}
+  if(M.phase!=='end'){ffToEnd();return}
+  if(!S.champion){clearTimeout(EX.pensT);quickPens();return}
+  fullTimePopup();
 }
-function goCelebration(){dropExploreScene();EX.inMain=false;startCelebration(S.champion,{spectator:true})}
+function ffToEnd(){
+  EX.ff=true;
+  cutscene('Full time','The rest of the final flies by',1400,()=>{
+    let n=0;while(M.phase!=='end'&&n<400000){if(M.phase==='ht'){if(EX.show)endShow(true);else{M.half=2;kickoff(1)}}step(1/60);n++}
+    EX.ff=false;if(!S.champion)quickPens()});
+}
+function watchFullTime(){
+  const[a,b]=M.score;roar();
+  if(a===b){exMsg(`Full time, ${a}–${b}. The World Cup final goes to penalties!`);if(!EX.ff)EX.pensT=setTimeout(startWatchPens,2800);return}
+  finalizeWatchedFinal();exMsg(`Full time! ${TM[S.champion].name} are world champions!`);
+  EX.pensT=setTimeout(fullTimePopup,2800);
+}
+// the shootout plays out live: both kickers and both keepers are computer-controlled
+function startWatchPens(){
+  if(!EX||EX.kind!=='suite'||S.champion||EX.pens)return;
+  const ord=t=>{const team=TM[M.ids[t]],o=[team.star];for(const i of[6,5,4,3,2,1,0])if(!o.includes(i))o.push(i);return o};
+  PS={auto:true,k:[[],[]],turn:0,phase:'runup',t:0,aim:{y:0,z:1},order:[ord(0),ord(1)]};
+  M.players.forEach(p=>{p.vx=p.vy=0;p.slide=p.stun=0;p.dive=null;p.kickT=0;p.celebrate=false});
+  R.ball.visible=true;EX.pens=true;whistle(1);
+  exMsg('Penalties! Sit by the glass for the best view.');
+  nextKick();
+}
+function quickPens(){
+  EX.pens=false;PS={auto:true,k:PS&&PS.auto&&PS.k?PS.k:[[],[]]};
+  let t=PS.k[0].length>PS.k[1].length?1:0;
+  while(penWinner()==null){PS.k[t].push(Math.random()<.76);t=1-t}
+  watchPensDone(PS.k[0].filter(Boolean).length,PS.k[1].filter(Boolean).length);
+}
+function watchPensDone(sa,sb){
+  EX.pens=false;M.pens=[sa,sb];
+  finalizeWatchedFinal([sa,sb]);roar();
+  exMsg(`${TM[S.champion].name} win ${Math.max(sa,sb)}–${Math.min(sa,sb)} on penalties. They are world champions!`);
+  EX.pensT=setTimeout(fullTimePopup,2800);
+}
+function fullTimePopup(){
+  if(!EX||EX.kind!=='suite'||EX.route||EX.leaving||!S.champion)return;
+  clearTimeout(EX.pensT);if(EX.activity)endActivity();
+  const t=S.rounds[S.rounds.length-1].ties[0],champ=TM[S.champion];
+  EX.paused=true;const ov=$('#overlay');ov.hidden=false;
+  ov.innerHTML=`<p class="eyebrow">Full time · World Cup Final</p><h3>${esc(champ.name)} are world champions!</h3><p>${esc(TM[t.a].name)} ${t.sa}–${t.sb} ${esc(TM[t.b].name)}${t.pens?` (${t.pens[0]}–${t.pens[1]} on penalties)`:''}</p><p>A tournament official rushes into the suite: "You're presenting the trophy tonight with the FIFA President. Follow the arrow down to the pitch!"</p><div class="ov-actions"><button type="button" class="btn primary" id="ovGo">Follow the arrow</button></div>`;
+  $('#ovGo').onclick=()=>{ov.hidden=true;EX.paused=false;startRoute()};$('#ovGo').focus();
+}
+
+// the gold arrow floats over wherever you need to go next
+function makeArrow(){
+  const g=new THREE.Group(),mat=new THREE.MeshStandardMaterial({color:0xf0c23b,emissive:0xf0c23b,emissiveIntensity:.8,roughness:.4});
+  const head=new THREE.Mesh(new THREE.ConeGeometry(.38,.6,16),mat);head.rotation.x=Math.PI;head.position.y=.3;g.add(head);
+  const shaft=new THREE.Mesh(new THREE.CylinderGeometry(.1,.1,.6,10),mat);shaft.position.y=.9;g.add(shaft);
+  EX.scene.add(g);return g}
+function routeUpdate(dt){
+  const r=EX.route,a=EX.arrow;if(!r||!a)return;const w=r[0];
+  if(!w){a.visible=false;return}
+  const x=w.p?w.p.x:w.x,z=w.p?w.p.y:w.z;
+  if(w.auto&&Math.hypot(EX.p.x-x,EX.p.z-z)<1.6){r.shift();return}
+  a.visible=true;a.position.set(x,(w.y??(EX.floorAt?EX.floorAt(x,z):EX.floorY||0))+(w.h||2.3)+Math.sin(EX.t*4)*.15,z);a.rotation.y+=dt*2;
+  if(EX.carry&&!EX.activity){const P=EX.p,e=(EX.floorAt?EX.floorAt(P.x,P.z):0)+1.65,c=Math.cos(P.yaw),s=Math.sin(P.yaw);
+    EX.trophy.position.set(P.x+c*.85-s*.22,e-.5,P.z+s*.85+c*.22);EX.trophy.rotation.y=-P.yaw}
+  else if(EX.trophy&&!EX.carry&&!EX.activity)EX.trophy.rotation.y+=dt*.5;
+}
+function setStands(v){if(R&&R.scene)R.scene.traverse(o=>{if(o.isMesh&&o.material&&o.material.map&&o.material.map===R.crowdTex)o.visible=v})}
+
+// a stairwell beside the suite, running down inside the lower stand
+const STW={x0:9.4,x1:18,z0:39.4,z1:41.4,top:SUITE.y,bot:SUITE.y-5.1,s0:11,s1:16.5};
+const stairY=x=>{const s=STW;return x<=s.s0?s.top:x>=s.s1?s.bot:s.top-(x-s.s0)/(s.s1-s.s0)*(s.top-s.bot)};
+function buildStairs(){
+  const s=STW,zc=(s.z0+s.z1)/2,w=s.z1-s.z0,len=s.x1-s.x0,xc=(s.x0+s.x1)/2,base=s.bot-.4,hh=s.top+3.4-base;
+  B(len,hh,.15,'#7d7a73',xc,base,s.z0-.08);B(len,hh,.15,'#7d7a73',xc,base,s.z1+.08);
+  B(.15,hh,w+.3,'#7d7a73',s.x0-.08,base,zc);B(.15,hh,w+.3,'#7d7a73',s.x1+.08,base,zc);
+  B(len+.3,.15,w+.3,'#2a2e36',xc,s.top+3.4,zc);
+  B(s.s0-s.x0,.4,w,'#5a5f6a',(s.x0+s.s0)/2,s.top-.4,zc);B(s.x1-s.s1,.4,w,'#5a5f6a',(s.s1+s.x1)/2,s.bot-.4,zc);
+  const n=17,run=(s.s1-s.s0)/n;
+  for(let i=0;i<n;i++){const x=s.s0+run*(i+.5),y=stairY(x);B(run+.01,y-base,w,i%2?'#40444d':'#383c44',x,base,zc);B(.06,.03,w,'#f0c23b',x+run/2-.04,y,zc)}
+  for(const x of[10.2,13.7,17.2])pointLight(x,stairY(x)+2.7,zc,.55,8);
+  B(.08,2.3,1.3,'#7a5a3a',s.x1-.06,s.bot,zc);sign('TO THE PITCH',s.x1-.12,s.bot+2.6,zc,1.6,.32,-Math.PI/2,{bg:'#0b1310',fg:'#f0c23b'});
+}
+
+function startRoute(){
+  const F=SUITE.y;
+  EX.arrow=makeArrow();EX.upd.push(routeUpdate);
+  EX.goal='Follow the gold arrow: out of the suite, down the stairs and onto the pitch.';$('#exGoal').textContent=EX.goal;
+  B(.08,2.3,1.3,'#7a5a3a',SUITE.x1-.14,F,40.4);sign('STAIRS TO PITCH',SUITE.x1-.2,F+2.65,40.4,1.8,.32,-Math.PI/2,{bg:'#0b1310',fg:'#f0c23b'});
+  EX.route=[{x:SUITE.x1-.6,z:40.4}];
+  item(SUITE.x1-.6,40.4,'Open the door to the stairs',enterStairs,1.8,()=>!EX.stairs);
+  buildCeremony();
+  exMsg('Follow the gold arrow.');
+}
+function enterStairs(){
+  if(EX.stairs)return;EX.stairs=true;
+  cutscene('Suite 26','You slip out of the side door',900,()=>{
+    EX.walls=[];EX.circles=[];EX.items=[];setStands(false);
+    EX.floorAt=(x,z)=>stairY(x);EX.valid=(x,z)=>x>STW.x0+.3&&x<STW.x1-.35&&z>STW.z0+.3&&z<STW.z1-.3;
+    EX.p.x=STW.x0+.7;EX.p.z=40.4;EX.p.yaw=0;
+    EX.route=[{x:STW.x1-.6,z:40.4}];
+    item(STW.x1-.6,40.4,'Open the door to the stand',enterStand,1.8,()=>!EX.inStand);
+    EX.place='New York New Jersey Stadium · Stairs to the pitch';$('#exPlace').textContent=EX.place;
+    crowd(.08,.6)});
+}
+
+// the aisle runs down the lower stand at x=20, then a few steps drop to pitch level
+const standSurf=z=>1.6+(z-HW-8)*28.4/32;
+function standFloor(x,z){if(z>=HW+8)return standSurf(z);if(z>=HW+6.5)return(z-HW-6.5)/1.5*1.6;return x>3.5&&x<9.5&&z>18&&z<22?.35:0}
+function standValid(x,z){
+  const inAisle=x>19.6&&x<20.8;
+  if(z>HW+8.05)return inAisle&&z<HW+12.5;
+  if(z>HW+6.4)return inAisle;
+  if(z>HW+2.6&&z<HW+4.9)return(x>12.5&&x<14.6)||(x>-3.5&&x<3.5)||(x>-14.6&&x<-12.5);   // gaps between the boards and dugouts
+  return Math.abs(x)<HL+3&&z>-HW-2.5;
+}
+function enterStand(){
+  if(EX.inStand)return;EX.inStand=true;
+  cutscene('Pitch level','The door opens onto the stand, and the noise hits you',1000,()=>{
+    setStands(true);buildAisle();ceremonyItems();
+    EX.floorAt=standFloor;EX.valid=standValid;
+    EX.p.x=20.2;EX.p.z=HW+12.1;EX.p.yaw=-Math.PI/2;
+    EX.route=[{x:20.2,z:HW+7.2,auto:true},{x:13.6,z:HW+5.4,auto:true},{x:13.6,z:HW+1.6,auto:true},{p:EX.pres,y:.35,h:2.9}];
+    EX.place='New York New Jersey Stadium · Pitchside';$('#exPlace').textContent=EX.place;
+    EX.goal=`Walk down the aisle to the pitch and meet ${PRESIDENT.n}, the ${PRESIDENT.k}, on the trophy stage.`;$('#exGoal').textContent=EX.goal;
+    crowd(.75,.5);roar()});
+}
+function buildAisle(){
+  const champ=TM[S.champion],t=S.rounds[S.rounds.length-1].ties[0],other=TM[t.w===t.a?t.b:t.a];
+  B(2.4,2.6,1.4,'#0d0f14',20.2,standSurf(HW+12.6)-.2,HW+13.3);B(2.8,.35,1.6,'#2a2e36',20.2,standSurf(HW+12.6)+2.4,HW+13.3);
+  for(let i=0;i<9;i++){const z=HW+12.4-.49*(i+.5),y=standSurf(z);B(1.5,.65,.5,i%2?'#6b707b':'#5f646e',20.2,y-.6,z);B(1.5,.03,.06,'#f0c23b',20.2,y+.05,z-.22)}
+  for(let i=0;i<3;i++)B(1.5,1.2-i*.4,.5,'#6b707b',20.2,0,HW+7.75-i*.5);
+  for(const x of[19.35,21.05])for(let z=HW+8.4;z<HW+12.4;z+=1)B(.05,.9,.05,'#c9a94a',x,standSurf(z),z);
+  for(let i=0;i<10;i++){const x=i%2?21.9:18.5,z=HW+8.6+(i>>1)*.8,kit=(i%3?champ:other).kit;
+    person(kit,'','aisle-fan'+i,x,z,-Math.PI/2,{y:standSurf(z)})}
+}
+function buildCeremony(){
+  const w=S.champion===M.ids[0]?0:1,team=TM[S.champion];
+  B(6,.35,4,'#101724',6.5,0,20);B(6.1,.06,.08,'#f0c04a',6.5,.32,22.02);
+  sign('WORLD CUP FINAL · NEW YORK NEW JERSEY 2026',6.5,2.2,17.9,6,.8,0,{bg:'#0b1310',fg:'#f0c23b'});
+  B(.55,1.05,.55,'#f4f4f4',8.6,.35,19.3);
+  EX.trophy=makeTrophy();EX.trophy.position.set(8.6,1.4,19.3);EX.scene.add(EX.trophy);
+  EX.pres=person(['#1b1f2a','#f4f4f4','#111111'],'','fifa-president',5.8,19.2,Math.PI/2,{y:.35,trousers:'#1b1f2a'});
+  EX.presTag=nameTag(PRESIDENT.n,PRESIDENT.k,5.8,.35+2.25,19.2);
+  // the champions line up in front of the stage; their captain waits on it
+  const cap=M.players.find(p=>p.team===w&&p.i===team.star);let k=0,j=0;
+  for(const p of M.players){p.vx=p.vy=0;p.dive=null;p.slide=p.stun=0;p.kickT=0;p.celebrate=false;
+    if(p===cap){p.x=4.3;p.y=20.6;p.fx=1;p.fy=0;p.onStage=true;continue}
+    if(p.team===w){p.x=2.4+k*1.4;p.y=23.6;p.fx=0;p.fy=-1;k++}
+    else{p.x=-14+j*1.4;p.y=21;p.fx=1;p.fy=0;j++}}
+  EX.cap=cap;R.ball.visible=false;
+}
+function ceremonyItems(){
+  const team=TM[S.champion],cap=EX.cap;
+  item(EX.pres.x,EX.pres.y,`Meet ${PRESIDENT.n}, ${PRESIDENT.k}`,meetPresident,1.9,()=>EX.inStand&&!EX.met);
+  item(8.6,19.9,'Pick up the World Cup trophy',()=>{EX.carry=true;tone(660,.15,.06);EX.route=[{p:cap,y:.35,h:2.9}];
+    exMsg(`Now hand it to ${team.players[team.star].name}, the ${team.name} captain.`)},1.6,()=>EX.met&&!EX.carry);
+  item(cap.x+.9,cap.y,`Present the trophy to ${team.players[team.star].name}`,presentTrophy,1.7,()=>EX.carry);
+}
+function meetPresident(){
+  const p=EX.pres,met=()=>{EX.met=true;EX.route=[{x:8.6,z:19.3,y:1.4,h:1.2}];exMsg('Pick up the trophy from the plinth.')};
+  startActivity({title:PRESIDENT.n,cam:[EX.p.x,standFloor(EX.p.x,EX.p.z)+1.65,EX.p.z],look:[p.x,.35+1.55,p.y],cancel:false});
+  choice(`${PRESIDENT.n} · ${PRESIDENT.k}`,'"What a final! Thank you for being here. Shall we present the trophy together?"',
+    [{label:'Shake hands',reply:`"An honour to have you here tonight," says ${PRESIDENT.n}, shaking your hand.`,fn:met},{label:"Let's do it",fn:met}]);
+}
+function presentTrophy(){
+  const cap=EX.cap,team=TM[S.champion],name=team.players[team.star].name,from=EX.trophy.position.clone(),to=new THREE.Vector3(cap.x+.38,.35+1.05,cap.y);
+  EX.route=[];EX.carry=false;
+  startActivity({title:'Trophy presentation',cam:[EX.p.x,.35+1.65,EX.p.z],look:[cap.x,.35+1.5,cap.y],dur:2.4,cancel:false,
+    hint:`You hand the World Cup to ${name}...`,update:A=>{const k=Math.min(1,A.t/2);EX.trophy.position.lerpVectors(from,to,k*k*(3-2*k))},
+    done:()=>{roar();finishPresentation()}});
+}
+function finishPresentation(){
+  if(EX.leaving)return;EX.leaving=true;const team=TM[S.champion];
+  cutscene('World champions',`${team.players[team.star].name} lifts the World Cup`,1500,()=>goCelebration(true));
+}
 
 /* ---------- 4. the halftime show ---------- */
 function watchHalfTime(){
@@ -2341,7 +2509,7 @@ function endShow(silent){
   s.parts.forEach(m=>{EX.scene.remove(m);disposeTree(m)});
   EX.guests.filter(g=>g.c.perf).forEach(g=>{g.mesh.root.visible=true;g.tag.visible=true});
   M.players.forEach(p=>p.mesh.root.visible=true);R.ball.visible=true;
-  EX.skip=escortDown;crowd(.2,1);
+  EX.skip=EX.skipMain;crowd(.2,1);
   M.half=2;kickoff(1);if(!silent){whistle(1);exMsg('The performers are back in the suite, buzzing. Second half under way.')}
 }
 
